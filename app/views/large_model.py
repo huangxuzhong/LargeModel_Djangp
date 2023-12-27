@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from django.db.models import Q
+from django.db.models import Q,Prefetch  
 from django.http import JsonResponse
 from rest_framework import serializers
 from rest_framework.decorators import action
@@ -17,7 +17,14 @@ from app.utils.socket_client import TcpScoket
 class LargeModelSerializer(serializers.ModelSerializer):
     # model_name = serializers.CharField(max_length=255)
     create_time = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
-
+    # base_model_path = serializers.CharField()  # 添加新的字段来包含base的model_path属性
+    
+    # def get_base_model_path(self, obj):  
+    #     return obj.base.model_path  # 返回base对象的model_path属性
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['base_model_path'] = instance.base.model_path
+        return representation
     def to_internal_value(self, data):
         # 在这里对data进行预处理
         data['create_time'] = datetime.now()
@@ -90,9 +97,9 @@ class LargeModelViewSet(GenericViewSet):
             # instances = instances.filter(create_time__gte=start_time, create_time__lte=end_time)
             print('start_time', start_time)
             print('end_time', end_time)
-        instances = models.LargeModel.objects.filter(q_objects)
+        instances = models.LargeModel.objects.select_related('base').filter(q_objects)
         # 查看sql语句
-        print(instances.query)
+        #print(instances.query)
         serializer = LargeModelSerializer(instances[skip_count:skip_count + max_result], many=True)
         return DetailResponse(data={'total': len(instances), 'items': serializer.data})
         # return JsonResponse({"code": 200, "data": "successful", "succeeded": True})
@@ -137,11 +144,19 @@ class LargeModelViewSet(GenericViewSet):
       
     @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
     def get_create_model_args(self, request):
+        base_models=models.BaseModel.objects.all()
+        base_json=[]
+        for base_model in base_models:
+            base_json.append({"id":base_model.id,"label":base_model.name,"model_path":base_model.model_path})
+        datasets=models.Dataset.objects.all()
+        dataset_json=[]
+        for dataset in datasets:
+            dataset_json.append({"id":dataset.id,"label":dataset.dataset_name,"resource":dataset.resource})
         args={
-        "base": [{ "id": 'bigscience/bloom-560m', "label": 'bloom-560m' }],
+            "base":base_json,
         "type": [{ "id": 'text_chat', "label": '文本对话' }],
         "resource": [{ "id": 'default', "label": '默认' }],
-        "dataset": [{ "id": '1', "label": 'alpaca_zh' }],
+        "dataset": dataset_json,
         }
         return DetailResponse(data={"args":args})
       

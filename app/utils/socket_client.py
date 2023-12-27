@@ -57,8 +57,7 @@ class TcpScoket():
                 # 读取消息内容  
                 data = self.client_socket.recv(message_length)  
                 print(f"收到来自服务器的数据：{data.decode('utf-8')}")
-                websocket= WebSocketManager()
-                websocket.add_message(json.loads(data))
+                WebSocketManager.add_message(json.loads(data))
             except json.decoder.JSONDecodeError as e:
                 print(f"JSON解析失败/n{data.decode('utf-8')}")
             except ConnectionResetError:

@@ -5,7 +5,7 @@ import threading
 import time
 from typing import Dict
 import websockets
-from .stack import MessageStack
+from .stack import MessageQueue
 
 
 
@@ -14,7 +14,7 @@ class WebSocketManager():
     _singal_instance=None
     task_to_websocket={}
     # message_buffer=Dict[str,Stack]={}
-    message_buffer=MessageStack(max_size=200)
+    message_buffer=MessageQueue(max_size=200)
     def __new__(cls):
         if cls._singal_instance is None:
             cls._singal_instance = super().__new__(cls)
@@ -67,9 +67,9 @@ class WebSocketManager():
                             clients.remove(client)     
             except Exception as e:
                 print(e)
-
-    def add_message(self,msg):
-        self.message_buffer.push(msg)
+    @staticmethod
+    def add_message(msg):
+       WebSocketManager.message_buffer.push(msg)
             
     async def handle_connection(self,websocket, path):
         user = await websocket.recv()

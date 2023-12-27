@@ -49,6 +49,8 @@ class Users(AbstractUser):
 
     def set_password(self, raw_password):
         super().set_password(raw_password)
+    
+
 
     class Meta:
         db_table = "system_users"
@@ -80,11 +82,15 @@ class CoreModel(models.Model):
         verbose_name = '核心模型'
         verbose_name_plural = verbose_name
 
-
+class BaseModel(models.Model):
+    name= models.CharField(max_length=255, null=True, blank=True)
+    model_path=models.CharField(max_length=255, null=True, blank=True)
+    
 class LargeModel(models.Model):
     model_name = models.CharField(max_length=255, null=True, blank=True)
     type = models.CharField(max_length=255, null=True, blank=True)
-    base = models.CharField(max_length=255, null=True, blank=True)
+    base=models.ForeignKey(BaseModel, on_delete=models.SET_NULL, related_name='up_model', to_field='id',null=True,)
+    # base = models.CharField(max_length=255, null=True, blank=True)
     dataset = models.CharField(max_length=255, null=True, blank=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     resource = models.CharField(max_length=255, null=True, blank=True)
@@ -104,7 +110,7 @@ class LargeModel(models.Model):
 
 
 class TrainRecord(models.Model):
-    model_id = models.ForeignKey(LargeModel, on_delete=models.CASCADE)
+    model_id = models.ForeignKey(LargeModel, on_delete=models.SET_NULL,null=True)
     record_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, )
 
     def __init__(self, model_id, *args, **kwargs):
@@ -121,7 +127,17 @@ class Dataset(models.Model):
     resource = models.CharField(max_length=255, null=True, blank=True)
     create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, )
    
+class Workspace(models.Model):
+    workspace_name = models.CharField(max_length=255, null=True, blank=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    creator=models.ForeignKey(Users, on_delete=models.SET_NULL, related_name='created_workspace', to_field='id',null=True,)
+    model_id=models.ForeignKey(LargeModel, on_delete=models.SET_NULL, related_name='related_workspace', to_field='id',null=True,)
+    create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, )
+    published=models.BooleanField(default=False,null=False)
+  
+  
 
+   
 class LoginLog(CoreModel):
     LOGIN_TYPE_CHOICES = (
         (1, "普通登录"),

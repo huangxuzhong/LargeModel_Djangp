@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "corsheaders",
     'rest_framework',
-    # 'compressor',
+    'adrf',#支持异步视图
     'app'
 ]
 

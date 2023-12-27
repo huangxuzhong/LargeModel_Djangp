@@ -12,7 +12,7 @@ import rest_framework.permissions
 from app import models
 from app.models import Dataset
 from app.utils.json_response import DetailResponse, ErrorResponse
-from app.utils.llama_factory_api import start_train
+
 from app.utils.socket_client import TcpScoket
 
 import os
@@ -149,7 +149,8 @@ class DatasetViewSet(GenericViewSet):
             with open(dataset.resource, 'r', encoding='utf-8') as file:
                 data = json.load(file)
                 data_item=data[data_item_index:data_item_index+1][0]
-                return DetailResponse(data={"total_count":len(data),"current_index":data_item_index,"data_item":data_item})
+                return DetailResponse(data={"total_count":len(data),"current_index":data_item_index,"data_item":data_item,
+                                            "dataset_id":dataset_id,"dataset_name":dataset.dataset_name})
         else:
             return ErrorResponse(msg="文件不存在")
       
