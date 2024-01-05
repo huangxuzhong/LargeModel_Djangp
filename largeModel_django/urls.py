@@ -48,5 +48,5 @@ urlpatterns = [
 
 urlpatterns += system_url.urls
 # 打印生成的url配置项
-for url in urlpatterns:
-    print(url)
+# for url in urlpatterns:
+#     print(url)

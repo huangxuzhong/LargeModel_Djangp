@@ -10,12 +10,15 @@ from rest_framework.viewsets import GenericViewSet
 import rest_framework.permissions
 from app import models
 from app.models import Workspace,Users
+from app.utils.chat import ChatStorage
 from app.utils.json_response import DetailResponse, ErrorResponse
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.decorators import api_view  
 from adrf.viewsets import ViewSet
 from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
+
+from app.utils.socket_client import TcpScoket
 
 class WorkspaceSerializer(serializers.ModelSerializer):
     def to_internal_value(self, data):
@@ -131,6 +134,17 @@ class WorkspaceViewSet(GenericViewSet):
 #                 return JsonResponse({"message": "异步视图已执行"})
 #         return JsonResponse({"message": "异步视图已执行"})
 
+def get_model_by_workspace(workspace_id):
+    model_id=None
+    if models.Workspace.objects.filter(id=workspace_id).exists():
+        model_id= models.Workspace.objects.get(id=workspace_id).model_id
+    return  model_id
+
+def get_base_model_by_model(model_id):
+    instances = models.LargeModel.objects.select_related('base').get(id=model_id)
+    return instances
+
+
 class ChatViewSet(ViewSet):
     @action(methods=["POST"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
     async def chater(self, request):  
@@ -143,9 +157,94 @@ class ChatViewSet(ViewSet):
                 return JsonResponse({"message": "异步视图已执行"})
         return JsonResponse({"message": "异步视图执行"})
     
+    #模型问答
+    @action(methods=["POST"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    async def test_chat(self,request):
+        req_json = json.loads(request.body)
+        workspace_id =req_json["workspace_id"]
+        history=req_json.get("history",[])
+        model= await sync_to_async(get_model_by_workspace)(workspace_id)
+        model_id=model.id
+        message= req_json["messages"]
+        uuid= req_json["uuid"]
+        data={
+            "chat_args":{
+            "messages":message,
+            "history":history,
+            "uuid":uuid,
+            },
+            "model_id":model_id,
+            "type":"chat"
+        }
+        TcpScoket.send_data(json.dumps(data),"llama1")
+        try: 
+            response=await ChatStorage.async_get_message(uuid)
+            return DetailResponse(data={'response': response})
+        except Exception as e:
+            print(e)
+            return ErrorResponse(data={'message': "请求超时"})
+       
+    
     @sync_to_async
     def _get_model_id(self,workspace_id):
        if models.Workspace.objects.filter(id=workspace_id).exists():
           instance =models.Workspace.objects.get(id=workspace_id)
           return instance.model_id
        return None
+   
+     #加载模型
+    
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    async def load_chat(self, request):
+        workspace_id = request.query_params.get('workspace_id')
+        uuid= request.query_params.get('uuid')
+        template=request.query_params.get('template')
+        model= await sync_to_async(get_model_by_workspace)(workspace_id)
+        model_id=model.id
+        checkpoint_dir=model.checkpoint_dir
+        instance=await sync_to_async(get_base_model_by_model)(model_id)
+        data={
+            "script_args":{
+            "uuid":uuid,
+            "model_id":model_id,
+            "model_name_or_path":instance.base.model_path,
+            "template":template,
+            "finetuning_type":"lora",
+            },
+            "type":"load_chat"
+        }
+        if checkpoint_dir is not None and checkpoint_dir!="":
+            data["script_args"]["checkpoint_dir"]=checkpoint_dir
+        TcpScoket.send_data(json.dumps(data),"llama1")
+        try: 
+            response=await ChatStorage.async_get_message(uuid,timeout=60)
+            if response:
+                return DetailResponse(data={'message': "记载成功"})
+            else:
+                return  ErrorResponse(data={'message': "加载失败"})
+        except Exception as e:
+            print(e)
+            return ErrorResponse(data={'message': "请求超时"})
+
+       
+       
+    
+     #卸载模型
+    @sync_to_async
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    def unload_chat(self, request):
+        workspace_id = request.query_params.get('workspace_id')
+        if models.Workspace.objects.filter(id=workspace_id).exists():
+            model_id=models.Workspace.objects.get(id=workspace_id).model_id.id
+            instances = models.LargeModel.objects.select_related('base').get(id=model_id)
+            data={
+                "script_args":{
+                "model_id":model_id,
+                },
+                "type":"unload_chat"
+            }
+            TcpScoket.send_data(json.dumps(data),"llama1")
+            return DetailResponse(data={'status': '正在卸载模型'})
+        else:
+            return ErrorResponse(data={'status': '卸载模型失败'})
+       

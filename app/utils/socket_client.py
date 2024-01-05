@@ -5,7 +5,10 @@ import struct
 import threading
 from time import sleep
 import configparser
-
+from app.utils.chat import ChatStorage
+import django
+django.setup()#不加这句导入models会报exceptions.AppRegistryNotReady
+from app import models
 from app.utils.websocket import WebSocketManager  
   
 
@@ -55,11 +58,12 @@ class TcpScoket():
                 # 将字节转换回整数，得到消息长度  
                 message_length = struct.unpack('>I', length_bytes)[0]  
                 # 读取消息内容  
-                data = self.client_socket.recv(message_length)  
-                print(f"收到来自服务器的数据：{data.decode('utf-8')}")
-                WebSocketManager.add_message(json.loads(data))
+                msg = self.client_socket.recv(message_length)  
+                json_msg = json.loads(msg)
+                print(f"收到来自服务器的数据：{msg.decode('utf-8')}")
+                self._handle_msg(json_msg)
             except json.decoder.JSONDecodeError as e:
-                print(f"JSON解析失败/n{data.decode('utf-8')}")
+                print(f"JSON解析失败/n{msg.decode('utf-8')}")
             except ConnectionResetError:
                 print("socket连接失败")
                 self.send_stop_event.set()
@@ -68,7 +72,26 @@ class TcpScoket():
                 return
             except Exception as e:
                 print(e)
+                
+                
+    def _handle_msg(self,json_msg):
+        # response_type=json_msg.get("data").get("response_type")
+        uuid=json_msg.get("data").get("uuid")
+        response_type=json_msg.get("data").get("response_type")
+        # if response_type=="chat":
+        if uuid is not None:   
+            ChatStorage.add_message(json_msg.get("data"))
+        else:
+            WebSocketManager.add_message(json_msg)
+        
+        if response_type=="finish_train":
+            task_id=json_msg.get("task")
+        
+            if models.LargeModel.objects.filter(id=task_id).exists():
+                instance=models.LargeModel.objects.get(id=task_id)
+                instance.save_model(json_msg.get("data").get("save_args"))
 
+        
 
     def __handle_send(self,stop_event):
          # 向消息服务器发送数据

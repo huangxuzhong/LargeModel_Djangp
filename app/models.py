@@ -100,6 +100,18 @@ class LargeModel(models.Model):
     service_name = models.CharField(max_length=255, null=True, blank=True, default='')
     interface_address = models.CharField(max_length=255, null=True, blank=True, default='')
     has_configured_extra_info = models.BooleanField(default=False)
+    checkpoint_dir= models.CharField(max_length=255, null=True, blank=True, default='')
+    
+    
+    #保存模型
+    def save_model(self,save_args):
+        checkpoint_dir=save_args.get("checkpoint_dir")
+        if checkpoint_dir is None:
+            return False
+        else:
+            self.checkpoint_dir=checkpoint_dir
+            self.save()
+            return True
 
     # 开始训练模型
     def start_train(self):
