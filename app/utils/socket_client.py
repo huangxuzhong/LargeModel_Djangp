@@ -5,6 +5,7 @@ import struct
 import threading
 from time import sleep
 import configparser
+import time
 from app.utils.chat import ChatStorage
 import django
 django.setup()#不加这句导入models会报exceptions.AppRegistryNotReady
@@ -18,6 +19,9 @@ class TcpScoket():
     local_machine_id=None
     def __init__(self):
        self.connect_to_server()
+       #开启心跳包机制
+       self.keep_alvie_thread= threading.Thread(target=self._keep_alvie)
+       self.keep_alvie_thread.start()
         
     def connect_to_server(self):
          #读取配置文件
@@ -27,11 +31,14 @@ class TcpScoket():
         server_port = config.get('server', 'port')  
         server_ip = config.get('server', 'ip')
         TcpScoket.local_machine_id=config.get('local', 'device_id')
+      
+      
         # 创建socket对象
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             # 连接服务器
             self.client_socket.connect((server_ip, int(server_port)))
+            self.client_socket.setblocking(False)
             TcpScoket.send_data('我是web服务程序',"server")
             TcpScoket.send_data('请转发给llama1',"llama1")
         except ConnectionRefusedError:
@@ -46,15 +53,24 @@ class TcpScoket():
         self.read_thread.start()
         self.send_thread = threading.Thread(target=self.__handle_send,args=(self.send_stop_event,))
         self.send_thread.start()
+    
+    
+    def _keep_alvie(self):
+        while True:
+            time.sleep(5)
+            if self.client_socket is not None:
+                TcpScoket.send_data({"type":"keepalive"},"server")
+           
 
     def __handle_read(self,stop_event):
         
         # 接收服务器发送的数据
         while not stop_event.is_set():
             try:
+                time.sleep(0.1)
                 length_bytes = self.client_socket.recv(4)  
-                if not length_bytes:  # 没有数据则退出循环  
-                    break  
+                # if not length_bytes:  # 没有数据则退出循环  
+                #     break  
                 # 将字节转换回整数，得到消息长度  
                 message_length = struct.unpack('>I', length_bytes)[0]  
                 # 读取消息内容  
@@ -62,7 +78,11 @@ class TcpScoket():
                 json_msg = json.loads(msg)
                 print(f"收到来自服务器的数据：{msg.decode('utf-8')}")
                 self._handle_msg(json_msg)
+            except BlockingIOError:
+                # 如果发生阻塞错误，说明没有数据可接收
+                continue
             except json.decoder.JSONDecodeError as e:
+                self.client_socket.recv(99999)#清空接收区缓存
                 print(f"JSON解析失败/n{msg.decode('utf-8')}")
             except ConnectionResetError:
                 print("socket连接失败")
@@ -102,7 +122,7 @@ class TcpScoket():
                   self.client_socket.send(data)
               except ConnectionResetError:
                 print("socket连接失败")
-                self.read__event.set()
+                self.read_stop_event.set()
                 timer = threading.Timer(5,   self.connect_to_server)#5秒后重新连接
                 timer.start()
                 return

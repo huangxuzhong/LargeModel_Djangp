@@ -106,7 +106,7 @@ class DatasetViewSet(GenericViewSet):
             with open(file_path, 'wb+') as destination:
                 for chunk in uploaded_file.chunks():
                     destination.write(chunk)
-            return DetailResponse(msg= '文件上传成功', data={'file_path': file_path})
+            return DetailResponse(msg= '文件上传成功', data={'file_path': file_path.replace('\\','/')})
         else:
             return ErrorResponse(msg='文件上传失败')
         
