@@ -134,11 +134,22 @@ class LargeModelViewSet(GenericViewSet):
     @action(methods=["POST"], detail=False)
     def control_train(self, request):
           data = json.loads(request.body)
+          model_id=data.get("taskId")
+          model=models.LargeModel.objects.get(id=model_id)
           if data.get("type")=="start_train":
-            TcpScoket.send_data(json.dumps(data),"llama1")
+            dataset=data.get("args").get("dataset")
+            instances =models.Dataset.objects.filter(dataset_name__in=dataset)
+            dataset_file=[]
+            dataset=[]
+            for instance in instances:
+                dataset_file.append(instance.resource)
+                dataset.append(instance.dataset_name)
+            data["args"]["dataset"]=dataset
+            data["args"]["dataset_file"]=dataset_file
+            TcpScoket.send_data(json.dumps(data),model.resource)
             return DetailResponse(data={'status': '正在开始训练'})
           elif data.get("type")=="stop_train":
-            TcpScoket.send_data(json.dumps(data),"llama1")
+            TcpScoket.send_data(json.dumps(data),model.resource)
             return DetailResponse(data={'status': '正在停止训练'})
       
       
@@ -155,8 +166,20 @@ class LargeModelViewSet(GenericViewSet):
         args={
             "base":base_json,
         "type": [{ "id": 'text_chat', "label": '文本对话' }],
-        "resource": [{ "id": 'default', "label": '默认' }],
+        "resource": [{ "id": '4090', "label": '4090服务器'},{ "id": 'v100', "label": 'V100服务器', }],
         "dataset": dataset_json,
         }
         return DetailResponse(data={"args":args})
+    
+    
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    def query_model_by_id(self, request):
+        id = request.query_params.get('id')
+        if id is not None and id != '':
+            if models.LargeModel.objects.filter(id=id).exists():
+                instance = models.LargeModel.objects.get(id=id)
+                serializer = LargeModelSerializer(instance)
+                return DetailResponse(data=serializer.data)
+        return ErrorResponse()
+    
       

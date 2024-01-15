@@ -176,9 +176,9 @@ class ChatViewSet(ViewSet):
             "model_id":model_id,
             "type":"chat"
         }
-        TcpScoket.send_data(json.dumps(data),"llama1")
+        TcpScoket.send_data(json.dumps(data),model.resource)
         try: 
-            response=await ChatStorage.async_get_message(uuid)
+            response=await ChatStorage.async_get_message(uuid,timeout=60)
             return DetailResponse(data={'response': response})
         except Exception as e:
             print(e)
@@ -215,7 +215,7 @@ class ChatViewSet(ViewSet):
         }
         if checkpoint_dir is not None and checkpoint_dir!="":
             data["script_args"]["checkpoint_dir"]=checkpoint_dir
-        TcpScoket.send_data(json.dumps(data),"llama1")
+        TcpScoket.send_data(json.dumps(data),model.resource)
         try: 
             response=await ChatStorage.async_get_message(uuid,timeout=60)
             if response:
@@ -224,7 +224,7 @@ class ChatViewSet(ViewSet):
                 return  ErrorResponse(data={'message': "加载失败"})
         except Exception as e:
             print(e)
-            return ErrorResponse(data={'message': "请求超时"})
+            return ErrorResponse(data={'message': "请求超时","timeout":True})
 
        
        
@@ -235,7 +235,8 @@ class ChatViewSet(ViewSet):
     def unload_chat(self, request):
         workspace_id = request.query_params.get('workspace_id')
         if models.Workspace.objects.filter(id=workspace_id).exists():
-            model_id=models.Workspace.objects.get(id=workspace_id).model_id.id
+            model=models.Workspace.objects.get(id=workspace_id).model_id
+            model_id=model.id
             instances = models.LargeModel.objects.select_related('base').get(id=model_id)
             data={
                 "script_args":{
@@ -243,7 +244,7 @@ class ChatViewSet(ViewSet):
                 },
                 "type":"unload_chat"
             }
-            TcpScoket.send_data(json.dumps(data),"llama1")
+            TcpScoket.send_data(json.dumps(data),model.resource)
             return DetailResponse(data={'status': '正在卸载模型'})
         else:
             return ErrorResponse(data={'status': '卸载模型失败'})
