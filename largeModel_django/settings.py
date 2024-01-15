@@ -120,7 +120,8 @@ DATABASES = {
         'HOST': '127.0.0.1',
         'PORT': 3306,
         'USER': 'root',
-        'PASSWORD': '123456'
+        # 'PASSWORD': '123456'
+        'PASSWORD': 'huang1358650629'
     }
 }
 # 缓存设置
