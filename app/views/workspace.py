@@ -135,13 +135,13 @@ class WorkspaceViewSet(GenericViewSet):
 #         return JsonResponse({"message": "异步视图已执行"})
 
 def get_model_by_workspace(workspace_id):
-    model_id=None
+    model=None
     if models.Workspace.objects.filter(id=workspace_id).exists():
-        model_id= models.Workspace.objects.get(id=workspace_id).model_id
-    return  model_id
+        model= models.Workspace.objects.get(id=workspace_id).model_id
+    return  model
 
 def get_base_model_by_model(model_id):
-    instances = models.LargeModel.objects.select_related('base').get(id=model_id)
+    instances = models.LargeModel.objects.select_related('base').get(id=model_id).base
     return instances
 
 
@@ -198,16 +198,22 @@ class ChatViewSet(ViewSet):
     async def load_chat(self, request):
         workspace_id = request.query_params.get('workspace_id')
         uuid= request.query_params.get('uuid')
-        template=request.query_params.get('template')
+        # template=request.query_params.get('template')
         model= await sync_to_async(get_model_by_workspace)(workspace_id)
         model_id=model.id
+        base_model= await sync_to_async(get_base_model_by_model)(model_id)
+        print(base_model)
+        if "baichuan" in base_model.name.lower():
+            template="baichuan2"
+        else:
+            template="chatglm2"
         checkpoint_dir=model.checkpoint_dir
-        instance=await sync_to_async(get_base_model_by_model)(model_id)
+        # instance=await sync_to_async(get_base_model_by_model)(model_id)
         data={
             "script_args":{
             "uuid":uuid,
             "model_id":model_id,
-            "model_name_or_path":instance.base.model_path,
+            "model_name_or_path":base_model.model_path,
             "template":template,
             "finetuning_type":"lora",
             },
