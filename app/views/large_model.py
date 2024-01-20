@@ -134,8 +134,8 @@ class LargeModelViewSet(GenericViewSet):
     @action(methods=["POST"], detail=False)
     def control_train(self, request):
           data = json.loads(request.body)
-          model_id=data.get("taskId")
-          model=models.LargeModel.objects.get(id=model_id)
+          task_id=data.get("taskId")
+          task=models.Task.objects.get(id=task_id)
           if data.get("type")=="start_train":
             dataset=data.get("args").get("dataset")
             instances =models.Dataset.objects.filter(dataset_name__in=dataset)
@@ -146,10 +146,10 @@ class LargeModelViewSet(GenericViewSet):
                 dataset.append(instance.dataset_name)
             data["args"]["dataset"]=dataset
             data["args"]["dataset_file"]=dataset_file
-            TcpScoket.send_data(json.dumps(data),model.resource)
+            TcpScoket.send_data(json.dumps(data),task.resource)
             return DetailResponse(data={'status': '正在开始训练'})
           elif data.get("type")=="stop_train":
-            TcpScoket.send_data(json.dumps(data),model.resource)
+            TcpScoket.send_data(json.dumps(data),task.resource)
             return DetailResponse(data={'status': '正在停止训练'})
       
       

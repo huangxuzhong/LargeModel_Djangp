@@ -8,6 +8,8 @@ import configparser
 import time
 from app.utils.chat import ChatStorage
 import django
+
+from app.utils.messgae_handler import train_status_handler
 django.setup()#不加这句导入models会报exceptions.AppRegistryNotReady
 from app import models
 from app.utils.websocket import WebSocketManager  
@@ -101,15 +103,11 @@ class TcpScoket():
         # if response_type=="chat":
         if uuid is not None:   
             ChatStorage.add_message(json_msg.get("data"))
-        else:
+        else:#训练过程中产生的输出信息
             WebSocketManager.add_message(json_msg)
         
-        if response_type=="finish_train":
-            task_id=json_msg.get("task")
-        
-            if models.LargeModel.objects.filter(id=task_id).exists():
-                instance=models.LargeModel.objects.get(id=task_id)
-                instance.save_model(json_msg.get("data").get("save_args"))
+        if response_type=="train_status":
+           train_status_handler(json_msg)
 
         
 

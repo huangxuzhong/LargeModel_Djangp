@@ -1,9 +1,11 @@
+from datetime import datetime
+import json
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-from app.utils import llama_factory_api
-from largeModel_django import settings
 
+from largeModel_django import settings
+from rest_framework import serializers
 
 # Create your models here.
 class Users(AbstractUser):
@@ -100,26 +102,43 @@ class LargeModel(models.Model):
     service_name = models.CharField(max_length=255, null=True, blank=True, default='')
     interface_address = models.CharField(max_length=255, null=True, blank=True, default='')
     has_configured_extra_info = models.BooleanField(default=False)
-    checkpoint_dir= models.CharField(max_length=255, null=True, blank=True, default='')
+    adapter_name_or_path= models.CharField(max_length=255, null=True, blank=True, default='')
     
+    
+    # #保存模型
+    # def save_model(self,save_args):
+    #     adapter_name_or_path=save_args.get("adapter_name_or_path")
+    #     if adapter_name_or_path is None:
+    #         return False
+    #     else:
+    #         self.adapter_name_or_path=adapter_name_or_path
+    #         self.save()
+    #         return True
     
     #保存模型
-    def save_model(self,save_args):
-        checkpoint_dir=save_args.get("checkpoint_dir")
-        if checkpoint_dir is None:
+    @staticmethod
+    def save_model(adapter_name_or_path:str,model_params:json):
+        if adapter_name_or_path is None or model_params is None:
             return False
         else:
-            self.checkpoint_dir=checkpoint_dir
-            self.save()
-            return True
+            model_params["adapter_name_or_path"]=adapter_name_or_path
+            serializer = LargeModelSerializer(data=model_params)
+            if serializer.is_valid():
+                serializer.save()
+                return True
+            return False
 
-    # 开始训练模型
-    def start_train(self):
-        instance = TrainRecord(model_id=self.pk)
-        instance.save()
-        llama_factory_api.start_train(self)
-        pass
-
+  
+class LargeModelSerializer(serializers.ModelSerializer):
+    create_time = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+    def to_internal_value(self, data):
+        # 在这里对data进行预处理
+        data['create_time'] = datetime.now()
+        data['dataset'] = json.dumps(data['dataset'])
+        return super().to_internal_value(data)
+    class Meta:
+        model = LargeModel
+        fields = '__all__'
 
 class TrainRecord(models.Model):
     model_id = models.ForeignKey(LargeModel, on_delete=models.SET_NULL,null=True)
@@ -147,7 +166,17 @@ class Workspace(models.Model):
     create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, )
     published=models.BooleanField(default=False,null=False)
   
-  
+
+class Task(models.Model):
+    task_name = models.CharField(max_length=255, null=True, blank=True)
+    create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, )
+    start_time = models.DateTimeField( null=True, )
+    end_time = models.DateTimeField( null=True, )
+    status= models.CharField(max_length=10, null=True, blank=True,default="unstart")
+    config=models.JSONField(null=True)
+    adapter_name_or_path=models.CharField(max_length=255, null=True, blank=True, default='')
+    model_params=models.JSONField(null=True)
+    resource = models.CharField(max_length=255, null=True, blank=True)
 
    
 class LoginLog(CoreModel):

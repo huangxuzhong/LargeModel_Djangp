@@ -207,7 +207,7 @@ class ChatViewSet(ViewSet):
             template="baichuan2"
         else:
             template="chatglm2"
-        checkpoint_dir=model.checkpoint_dir
+        adapter_name_or_path=model.adapter_name_or_path
         # instance=await sync_to_async(get_base_model_by_model)(model_id)
         data={
             "script_args":{
@@ -219,8 +219,8 @@ class ChatViewSet(ViewSet):
             },
             "type":"load_chat"
         }
-        if checkpoint_dir is not None and checkpoint_dir!="":
-            data["script_args"]["checkpoint_dir"]=checkpoint_dir
+        if adapter_name_or_path is not None and adapter_name_or_path!="":
+            data["script_args"]["adapter_name_or_path"]=adapter_name_or_path
         TcpScoket.send_data(json.dumps(data),model.resource)
         try: 
             response=await ChatStorage.async_get_message(uuid,timeout=60)
