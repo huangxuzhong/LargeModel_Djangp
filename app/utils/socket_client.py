@@ -9,7 +9,7 @@ import time
 from app.utils.chat import ChatStorage
 import django
 
-from app.utils.messgae_handler import train_status_handler
+from app.utils.messgae_handler import device_status_handler, train_status_handler
 django.setup()#不加这句导入models会报exceptions.AppRegistryNotReady
 from app import models
 from app.utils.websocket import WebSocketManager  
@@ -100,6 +100,10 @@ class TcpScoket():
         # response_type=json_msg.get("data").get("response_type")
         uuid=json_msg.get("data").get("uuid")
         response_type=json_msg.get("data").get("response_type")
+        #算力服务器状态信息
+        if response_type=='devices_status':
+            device_status_handler(json_msg)
+            return;
         # if response_type=="chat":
         if uuid is not None:   
             ChatStorage.add_message(json_msg.get("data"))

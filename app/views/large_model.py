@@ -163,11 +163,15 @@ class LargeModelViewSet(GenericViewSet):
         dataset_json=[]
         for dataset in datasets:
             dataset_json.append({"id":dataset.id,"label":dataset.dataset_name,"resource":dataset.resource})
+        
+        # 使用列表推导式  
+        device_list = [{'id': device.device_key, 'label': device.device_name} for device in models.Device.objects.all()]  
         args={
             "base":base_json,
-        "type": [{ "id": 'text_chat', "label": '文本对话' }],
-        "resource": [{ "id": '4090', "label": '4090服务器'},{ "id": 'v100', "label": 'V100服务器', }],
-        "dataset": dataset_json,
+            "type": [{ "id": 'text_chat', "label": '文本对话' }],
+            "resource":device_list,
+            # "resource": [{ "id": '4090', "label": '4090服务器'},{ "id": 'v100', "label": 'V100服务器', },{ "id": 'l40', "label": 'L40*2'}],
+            "dataset": dataset_json,
         }
         return DetailResponse(data={"args":args})
     

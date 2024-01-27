@@ -169,8 +169,8 @@ class Workspace(models.Model):
 
 class Task(models.Model):
     task_name = models.CharField(max_length=255, null=True, blank=True)
-    create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, )
-    start_time = models.DateTimeField( null=True, )
+    create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, blank=True)
+    start_time = models.DateTimeField( null=True, blank=True )
     end_time = models.DateTimeField( null=True, )
     status= models.CharField(max_length=10, null=True, blank=True,default="unstart")
     config=models.JSONField(null=True)
@@ -178,7 +178,15 @@ class Task(models.Model):
     model_params=models.JSONField(null=True)
     resource = models.CharField(max_length=255, null=True, blank=True)
 
-   
+
+class Device(models.Model):
+    device_name = models.CharField(max_length=2552)
+    device_key= models.CharField(max_length=50)
+    create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, blank=True)
+    description= models.CharField(max_length=255, null=True, blank=True)
+    is_online=models.BooleanField(default=False)
+
+
 class LoginLog(CoreModel):
     LOGIN_TYPE_CHOICES = (
         (1, "普通登录"),

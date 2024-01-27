@@ -1,3 +1,4 @@
+from datetime import datetime 
 import json
 
 import django
@@ -14,14 +15,29 @@ def train_status_handler(json_msg:json):
     if status=="finish":
         if task is not None:
             task.status="finish"
+            task.end_time=datetime.now()
             task.save()
             models.LargeModel.save_model(adapter_name_or_path=task.adapter_name_or_path,model_params=task.model_params)
     elif status=="terminate" or status=="error":
         if task is not None:
             task.status="finish"
+            task.end_time=datetime.now()
             task.save()
     elif status=="正在启动任务":
          if task is not None:
             task.status="processing"
+            task.start_time=datetime.now()
             task.save()
+
+
+def device_status_handler(json_msg:json):
+    device_list=json_msg.get("data").get('device_list')
+    devices=models.Device.objects.all()
+    for device in devices:
+        target=device_list.get(device.device_key)
+        if target is not None:
+            device.is_online=target["is_online"]
+        else:
+            device.is_online=False
+        device.save()
         

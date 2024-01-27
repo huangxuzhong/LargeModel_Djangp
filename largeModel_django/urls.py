@@ -26,6 +26,7 @@ from app.views.user import UserViewSet
 from app.views.workspace  import WorkspaceViewSet,ChatViewSet
 from app.views.base_model import BaseModelViewSet
 from app.views.task import TaskViewSet
+from app.views.device import DeviceViewSet
 system_url = routers.SimpleRouter()
 # system_url.register('users', DemoViewSet, basename='')
 system_url.register(r'users', DemoViewSet, basename='')
@@ -36,6 +37,7 @@ system_url.register(r'workspace', WorkspaceViewSet, basename='')
 system_url.register(r'chat', ChatViewSet, basename='')
 system_url.register(r'base_model', BaseModelViewSet, basename='')
 system_url.register(r'tasks', TaskViewSet, basename='')
+system_url.register(r'devices', DeviceViewSet, basename='')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("user/login", LoginView.as_view(), name="token_obtain_pair"),
