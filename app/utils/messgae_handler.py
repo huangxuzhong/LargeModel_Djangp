@@ -17,7 +17,7 @@ def train_status_handler(json_msg:json):
             task.status="finish"
             task.end_time=datetime.now()
             task.save()
-            models.LargeModel.save_model(adapter_name_or_path=task.adapter_name_or_path,model_params=task.model_params)
+            models.LargeModel.save_model(adapter_name_or_path=task.output_dir,model_params=task.model_params)
     elif status=="terminate" or status=="error":
         if task is not None:
             task.status="finish"

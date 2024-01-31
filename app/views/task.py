@@ -89,6 +89,18 @@ class TaskViewSet(GenericViewSet):
 
                   print(f"Field '{field}': {error}")
         return JsonResponse({"code": 200, "succeeded": False})
+    
+
+
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    def query_task_by_id(self, request):
+        id = request.query_params.get('id')
+        if id is not None and id != '':
+            if models.Task.objects.filter(id=id).exists():
+                instance = models.Task.objects.get(id=id)
+                serializer = TaskSerializer(instance)
+                return DetailResponse(data=serializer.data)
+        return ErrorResponse()
         
     
 

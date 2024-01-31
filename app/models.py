@@ -175,6 +175,7 @@ class Task(models.Model):
     status= models.CharField(max_length=10, null=True, blank=True,default="unstart")
     config=models.JSONField(null=True)
     adapter_name_or_path=models.CharField(max_length=255, null=True, blank=True, default='')
+    output_dir=models.CharField(max_length=255, null=True, blank=True, default='')
     model_params=models.JSONField(null=True)
     resource = models.CharField(max_length=255, null=True, blank=True)
 
