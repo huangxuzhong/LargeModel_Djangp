@@ -9,7 +9,7 @@ import time
 from app.utils.chat import ChatStorage
 import django
 
-from app.utils.messgae_handler import device_status_handler, train_status_handler
+from app.utils.messgae_handler import chat_task_list_handler, device_status_handler, loss_log_handler, train_status_handler
 django.setup()#不加这句导入models会报exceptions.AppRegistryNotReady
 from app import models
 from app.utils.websocket import WebSocketManager  
@@ -112,6 +112,18 @@ class TcpScoket():
         
         if response_type=="train_status":
            train_status_handler(json_msg)
+        #训练过程中的loss信息
+        loss_value=json_msg.get("data").get("loss_value")
+        if loss_value is not None:
+            loss_log_handler(json_msg)
+
+        #模型推理任务列表
+        
+        if response_type=="chat_task_list":
+            chat_task_list_handler(json_msg)
+            return
+
+        
 
         
 

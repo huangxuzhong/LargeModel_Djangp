@@ -1,2 +1,4 @@
 migrations
 uploads
+*.pyc
+debug.log

@@ -178,6 +178,7 @@ class Task(models.Model):
     output_dir=models.CharField(max_length=255, null=True, blank=True, default='')
     model_params=models.JSONField(null=True)
     resource = models.CharField(max_length=255, null=True, blank=True)
+    loss_log=models.JSONField( null=True)
 
 
 class Device(models.Model):

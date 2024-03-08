@@ -101,6 +101,15 @@ class TaskViewSet(GenericViewSet):
                 serializer = TaskSerializer(instance)
                 return DetailResponse(data=serializer.data)
         return ErrorResponse()
+    
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    def query_loss_by_task_id(self, request):
+       id = request.query_params.get('id')
+       if id is not None and id != '':
+            if models.Task.objects.filter(id=id).exists():
+                instance = models.Task.objects.get(id=id)
+                return DetailResponse(data=instance.loss_log)
+       return ErrorResponse()
         
     
 

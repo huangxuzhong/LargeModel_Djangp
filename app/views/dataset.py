@@ -11,6 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 import rest_framework.permissions
 from app import models
 from app.models import Dataset
+from app.utils.file import  read_specific_element_from_json_array_with_ijson
 from app.utils.json_response import DetailResponse, ErrorResponse
 
 from app.utils.socket_client import TcpScoket
@@ -145,12 +146,17 @@ class DatasetViewSet(GenericViewSet):
         data_item_index=int(request.query_params.get("dataItemIndex"))
         dataset=models.Dataset.objects.get(id=dataset_id)
         if  os.path.exists(dataset.resource):
-            # 打开并读取JSON文件
-            with open(dataset.resource, 'r', encoding='utf-8') as file:
-                data = json.load(file)
-                data_item=data[data_item_index:data_item_index+1][0]
-                return DetailResponse(data={"total_count":len(data),"current_index":data_item_index,"data_item":data_item,
-                                            "dataset_id":dataset_id,"dataset_name":dataset.dataset_name})
+            element,len=read_specific_element_from_json_array_with_ijson(dataset.resource,data_item_index)
+           
+            return DetailResponse(data={"total_count":len,"current_index":data_item_index,"data_item":element, "dataset_id":dataset_id,"dataset_name":dataset.dataset_name})
+
+            # # 打开并读取JSON文件
+            # with open(dataset.resource, 'r', encoding='utf-8') as file:
+                
+            #     data = json.load(file)
+            #     data_item=data[data_item_index:data_item_index+1][0]
+            #     return DetailResponse(data={"total_count":len(data),"current_index":data_item_index,"data_item":data_item,
+            #                                 "dataset_id":dataset_id,"dataset_name":dataset.dataset_name})
         else:
             return ErrorResponse(msg="文件不存在")
       

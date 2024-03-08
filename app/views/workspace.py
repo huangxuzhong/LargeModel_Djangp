@@ -173,7 +173,7 @@ class ChatViewSet(ViewSet):
             "history":history,
             "uuid":uuid,
             },
-            "model_id":model_id,
+            "workspace_id":workspace_id,
             "type":"chat"
         }
         TcpScoket.send_data(json.dumps(data),model.resource)
@@ -205,6 +205,8 @@ class ChatViewSet(ViewSet):
         print(base_model)
         if "baichuan" in base_model.name.lower():
             template="baichuan2"
+        elif "llama" in base_model.name.lower():
+            template="llama2_zh"
         else:
             template="chatglm2"
         adapter_name_or_path=model.adapter_name_or_path
@@ -212,7 +214,8 @@ class ChatViewSet(ViewSet):
         data={
             "script_args":{
             "uuid":uuid,
-            "model_id":model_id,
+            # "model_id":model_id,
+            "workspace_id":workspace_id,
             "model_name_or_path":base_model.model_path,
             "template":template,
             "finetuning_type":"lora",
@@ -225,7 +228,7 @@ class ChatViewSet(ViewSet):
         try: 
             response=await ChatStorage.async_get_message(uuid,timeout=60)
             if response:
-                return DetailResponse(data={'message': "记载成功"})
+                return DetailResponse(data={'message': "加载成功"})
             else:
                 return  ErrorResponse(data={'message': "加载失败"})
         except Exception as e:
@@ -236,22 +239,32 @@ class ChatViewSet(ViewSet):
        
     
      #卸载模型
-    @sync_to_async
     @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
-    def unload_chat(self, request):
+    async def unload_chat(self, request):
         workspace_id = request.query_params.get('workspace_id')
-        if models.Workspace.objects.filter(id=workspace_id).exists():
-            model=models.Workspace.objects.get(id=workspace_id).model_id
-            model_id=model.id
-            instances = models.LargeModel.objects.select_related('base').get(id=model_id)
-            data={
-                "script_args":{
-                "model_id":model_id,
-                },
-                "type":"unload_chat"
-            }
-            TcpScoket.send_data(json.dumps(data),model.resource)
-            return DetailResponse(data={'status': '正在卸载模型'})
-        else:
-            return ErrorResponse(data={'status': '卸载模型失败'})
+        uuid= request.query_params.get('uuid')
+        model= await sync_to_async(get_model_by_workspace)(workspace_id)
+        # if models.Workspace.objects.filter(id=workspace_id).exists():
+            # model=models.Workspace.objects.get(id=workspace_id).model_id
+            # model_id=model.id
+            # instances = models.LargeModel.objects.select_related('base').get(id=model_id)
+        data={
+            "script_args":{
+                    "uuid":uuid,
+            # "workspace_id":workspace_id,
+            },
+             "workspace_id":workspace_id,
+            "type":"unload_chat"
+        }
+        TcpScoket.send_data(json.dumps(data),model.resource)
+        try: 
+            response=await ChatStorage.async_get_message(uuid,timeout=60)
+            if response:
+                return DetailResponse(data={'message': "卸载成功"})
+            else:
+                return  ErrorResponse(data={'message': "卸载失败"})
+        except Exception as e:
+            print(e)
+            return ErrorResponse(data={'message': "请求超时","timeout":True})
+            
        

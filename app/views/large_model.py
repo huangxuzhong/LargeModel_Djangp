@@ -11,7 +11,7 @@ import rest_framework.permissions
 from app import models
 from app.models import LargeModel
 from app.utils.json_response import DetailResponse, ErrorResponse
-from app.utils.llama_factory_api import start_train
+
 from app.utils.socket_client import TcpScoket
 
 class LargeModelSerializer(serializers.ModelSerializer):
