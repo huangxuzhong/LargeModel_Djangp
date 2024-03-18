@@ -26,6 +26,12 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         data['create_time'] = datetime.now()
       
         return super().to_internal_value(data)
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        device=models.Device.objects.filter(device_key=instance.model.resource).first()
+        representation["device_name"]=device.device_name if device else None
+          
+        return representation
     
     class Meta:
         model = Workspace
@@ -137,7 +143,7 @@ class WorkspaceViewSet(GenericViewSet):
 def get_model_by_workspace(workspace_id):
     model=None
     if models.Workspace.objects.filter(id=workspace_id).exists():
-        model= models.Workspace.objects.get(id=workspace_id).model_id
+        model= models.Workspace.objects.get(id=workspace_id).model
     return  model
 
 def get_base_model_by_model(model_id):
@@ -151,8 +157,8 @@ class ChatViewSet(ViewSet):
         workspace_id = int(request.query_params.get('workspace_id', -1))
         messages=request.query_params.get('messages', None)
         published=request.query_params.get('published')=='true'
-        model_id=self._get_model_id()
-        if model_id is not None:
+        model=self._get_model()
+        if model is not None:
                 await asyncio.sleep(1)
                 return JsonResponse({"message": "异步视图已执行"})
         return JsonResponse({"message": "异步视图执行"})
@@ -176,7 +182,7 @@ class ChatViewSet(ViewSet):
             "workspace_id":workspace_id,
             "type":"chat"
         }
-        TcpScoket.send_data(json.dumps(data),model.resource)
+        TcpScoket.send_data(data,model.resource)
         try: 
             response=await ChatStorage.async_get_message(uuid,timeout=60)
             return DetailResponse(data={'response': response})
@@ -186,10 +192,10 @@ class ChatViewSet(ViewSet):
        
     
     @sync_to_async
-    def _get_model_id(self,workspace_id):
+    def _get_model(self,workspace_id):
        if models.Workspace.objects.filter(id=workspace_id).exists():
           instance =models.Workspace.objects.get(id=workspace_id)
-          return instance.model_id
+          return instance.model
        return None
    
      #加载模型
@@ -224,7 +230,7 @@ class ChatViewSet(ViewSet):
         }
         if adapter_name_or_path is not None and adapter_name_or_path!="":
             data["script_args"]["adapter_name_or_path"]=adapter_name_or_path
-        TcpScoket.send_data(json.dumps(data),model.resource)
+        TcpScoket.send_data(data,model.resource)
         try: 
             response=await ChatStorage.async_get_message(uuid,timeout=60)
             if response:
@@ -256,7 +262,7 @@ class ChatViewSet(ViewSet):
              "workspace_id":workspace_id,
             "type":"unload_chat"
         }
-        TcpScoket.send_data(json.dumps(data),model.resource)
+        TcpScoket.send_data(data,model.resource)
         try: 
             response=await ChatStorage.async_get_message(uuid,timeout=60)
             if response:

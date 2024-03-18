@@ -87,7 +87,41 @@ class CoreModel(models.Model):
 class BaseModel(models.Model):
     name= models.CharField(max_length=255, null=True, blank=True)
     model_path=models.CharField(max_length=255, null=True, blank=True)
-    
+
+#模型训练任务    
+class Task(models.Model):
+    task_name = models.CharField(max_length=255, null=True, blank=True)
+    create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, blank=True)
+    start_time = models.DateTimeField( null=True, blank=True )
+    end_time = models.DateTimeField( null=True, )
+    status= models.CharField(max_length=10, null=True, blank=True,default="unstart")
+    config=models.JSONField(null=True)
+    adapter_name_or_path=models.CharField(max_length=255, null=True, blank=True, default='')
+    output_dir=models.CharField(max_length=255, null=True, blank=True, default='')
+    model_params=models.JSONField(null=True)
+    resource = models.CharField(max_length=255, null=True, blank=True)
+    loss_log=models.JSONField( null=True)
+    checkpoints=models.JSONField( null=True)
+   
+
+    def get_finetuning_type(self):
+        return self.config.get("finetuning_type")
+
+
+#模型合并任务
+class ExportModelTask(models.Model):
+    task_name = models.CharField(max_length=255, null=True, blank=True)
+    create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, blank=True)
+    start_time = models.DateTimeField( null=True, blank=True )
+    end_time = models.DateTimeField( null=True, )
+    status= models.CharField(max_length=10, null=True, blank=True,default="unstart")
+    adapter_name_or_path=models.CharField(max_length=255, null=True, blank=True, default='')
+    model_name_or_path=models.CharField(max_length=255, null=True, blank=True, default='')
+    template=models.CharField(max_length=255, null=True, blank=True, default='default')
+    export_dir=models.CharField(max_length=255, null=True, blank=True)
+    finetuning_task=models.ForeignKey(Task, on_delete=models.SET_NULL, to_field='id',null=True,)
+    extra_data=models.JSONField(null=True)
+   
 class LargeModel(models.Model):
     model_name = models.CharField(max_length=255, null=True, blank=True)
     type = models.CharField(max_length=255, null=True, blank=True)
@@ -103,30 +137,22 @@ class LargeModel(models.Model):
     interface_address = models.CharField(max_length=255, null=True, blank=True, default='')
     has_configured_extra_info = models.BooleanField(default=False)
     adapter_name_or_path= models.CharField(max_length=255, null=True, blank=True, default='')
-    
-    
+    finetuning_task=models.ForeignKey(Task, on_delete=models.SET_NULL, to_field='id',null=True,)
+    model_path=models.CharField(max_length=255, null=True, blank=True)#由lora生成且未合并权重文件的模型的model_path为NULL
+    is_partial=models.BooleanField(default=True,null=True,)#由lora微调生成且未合并权重文件时为True"
+
     # #保存模型
-    # def save_model(self,save_args):
-    #     adapter_name_or_path=save_args.get("adapter_name_or_path")
-    #     if adapter_name_or_path is None:
+    # @staticmethod
+    # def save_model(adapter_name_or_path:str,model_params:json):
+    #     if adapter_name_or_path is None or model_params is None:
     #         return False
     #     else:
-    #         self.adapter_name_or_path=adapter_name_or_path
-    #         self.save()
-    #         return True
-    
-    #保存模型
-    @staticmethod
-    def save_model(adapter_name_or_path:str,model_params:json):
-        if adapter_name_or_path is None or model_params is None:
-            return False
-        else:
-            model_params["adapter_name_or_path"]=adapter_name_or_path
-            serializer = LargeModelSerializer(data=model_params)
-            if serializer.is_valid():
-                serializer.save()
-                return True
-            return False
+    #         model_params["adapter_name_or_path"]=adapter_name_or_path
+    #         serializer = LargeModelSerializer(data=model_params)
+    #         if serializer.is_valid():
+    #             serializer.save()
+    #             return True
+    #         return False
 
   
 class LargeModelSerializer(serializers.ModelSerializer):
@@ -162,31 +188,20 @@ class Workspace(models.Model):
     workspace_name = models.CharField(max_length=255, null=True, blank=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     creator=models.ForeignKey(Users, on_delete=models.SET_NULL, related_name='created_workspace', to_field='id',null=True,)
-    model_id=models.ForeignKey(LargeModel, on_delete=models.SET_NULL, related_name='related_workspace', to_field='id',null=True,)
+    model=models.ForeignKey(LargeModel, on_delete=models.SET_NULL, related_name='related_workspace', to_field='id',null=True,)
     create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, )
     published=models.BooleanField(default=False,null=False)
   
 
-class Task(models.Model):
-    task_name = models.CharField(max_length=255, null=True, blank=True)
-    create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, blank=True)
-    start_time = models.DateTimeField( null=True, blank=True )
-    end_time = models.DateTimeField( null=True, )
-    status= models.CharField(max_length=10, null=True, blank=True,default="unstart")
-    config=models.JSONField(null=True)
-    adapter_name_or_path=models.CharField(max_length=255, null=True, blank=True, default='')
-    output_dir=models.CharField(max_length=255, null=True, blank=True, default='')
-    model_params=models.JSONField(null=True)
-    resource = models.CharField(max_length=255, null=True, blank=True)
-    loss_log=models.JSONField( null=True)
 
 
 class Device(models.Model):
     device_name = models.CharField(max_length=2552)
-    device_key= models.CharField(max_length=50)
+    device_key= models.CharField(max_length=50,unique=True)
     create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, blank=True)
     description= models.CharField(max_length=255, null=True, blank=True)
     is_online=models.BooleanField(default=False)
+    gpu_memory=models.JSONField(null=True)
 
 
 class LoginLog(CoreModel):

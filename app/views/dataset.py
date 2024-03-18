@@ -125,7 +125,7 @@ class DatasetViewSet(GenericViewSet):
         
 
     #下载数据集
-    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.AllowAny])
     def download_dataset(self,request):
         file_path=  os.path.normpath(request.query_params.get("filePath"))
         if  os.path.isfile(file_path): 

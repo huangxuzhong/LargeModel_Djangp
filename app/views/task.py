@@ -21,8 +21,9 @@ class TaskSerializer(serializers.ModelSerializer):
         data['create_time'] = datetime.now()
         data['start_time']=None
         data['end_time']=None
-        data["task_name"]=data['model_params']['model_name']
-        data["resource"]=data['model_params']['resource']
+        data['model_params']={"type":data["type"],"base":data["base"]}
+        # data["task_name"]=data['model_params']['model_name']
+        # data["resource"]=data['model_params']['resource']
         return super().to_internal_value(data)
     
     class Meta:
@@ -110,6 +111,25 @@ class TaskViewSet(GenericViewSet):
                 instance = models.Task.objects.get(id=id)
                 return DetailResponse(data=instance.loss_log)
        return ErrorResponse()
+        
+
+    #获取所有已完成任务的名称
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    def all_finished_task_name(self, request):
+        instances =[{"task_id":task.id,"task_name":task.task_name,"finetuning_type":task.get_finetuning_type()} for task in models.Task.objects.filter(status="finish")] 
+        return DetailResponse(data={'total': len(instances), 'items': instances})
+    
+    #获取指定任务的checkpoints
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    def query_checkpoints_by_task_id(self, request):
+       id = request.query_params.get('id')
+       if id is not None and id != '':
+            if models.Task.objects.filter(id=id).exists():
+                instance = models.Task.objects.get(id=id)
+                return DetailResponse(data=(json.loads(instance.checkpoints)if instance.checkpoints else []) )
+       return ErrorResponse()
+    
+
         
     
 

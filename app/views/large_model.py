@@ -23,12 +23,12 @@ class LargeModelSerializer(serializers.ModelSerializer):
     #     return obj.base.model_path  # 返回base对象的model_path属性
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['base_model_path'] = instance.base.model_path
+        representation['base_model_path'] = instance.base.model_path if instance.model_path is None else instance.model_path
         return representation
     def to_internal_value(self, data):
         # 在这里对data进行预处理
         data['create_time'] = datetime.now()
-        data['dataset'] = json.dumps(data['dataset'])
+        data['dataset'] = []
         return super().to_internal_value(data)
 
     class Meta:
@@ -69,11 +69,55 @@ class LargeModelViewSet(GenericViewSet):
         # # now_formatted = now.strftime('%Y-%m-%d %H:%M:%S')  # 格式化当前时间
         # # large_model.create_time = now_formatted
         # large_model.save()
-        serializer = LargeModelSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return JsonResponse({"code": 200, "succeeded": True})
-        return JsonResponse({"code": 200, "succeeded": False})
+        try:
+            if models.LargeModel.objects.filter(model_name=data["model_name"]).first() is not None:
+                return ErrorResponse(msg="模型名已被使用，请更换名称")
+            large_model=LargeModel()
+            large_model.model_name=data["model_name"]
+            large_model.description=data["description"]
+            task_id=data["task"]
+            task=models.Task.objects.filter(id=task_id).first()
+            large_model.finetuning_task=task
+            large_model.type=task.model_params.get('type')
+            large_model.resource=task.resource
+            if data.get("merge_adapter")==True:
+                  export_dir=f"outputs/{data['model_name']}"
+                  export_model_task=models.ExportModelTask(task_name=f"{data['model_name']}--合并",
+                                                           start_time=datetime.now(),
+                                                           adapter_name_or_path=data["checkpoint"],
+                                                           model_name_or_path=task.config.get('model_name_or_path'),
+                                                           template=task.config.get('template'),
+                                                           export_dir=export_dir,
+                                                           finetuning_task=task,
+                                                           extra_data={"model_name":data["model_name"],"description":data["description"]})
+                  export_model_task.save()
+                  flag=TcpScoket.send_data({ "type": 'export_model', "taskId":export_model_task.id,"args":{
+                      "adapter_name_or_path":export_model_task.adapter_name_or_path,
+                      "model_name_or_path":export_model_task.model_name_or_path,
+                      "template":export_model_task.template,
+                      "export_dir":export_model_task.export_dir
+                  }},task.resource)
+                  if flag:
+                       return DetailResponse() 
+                  else:
+                     return ErrorResponse(msg="服务器不在线")    
+            else:
+                if task.get_finetuning_type()=='lora':
+                    large_model.adapter_name_or_path=data["checkpoint"]
+                    large_model.base_id=task.model_params.get('base')
+                else:
+                    large_model.model_path=data["checkpoint"]
+                    large_model.is_partial=False
+                large_model.save()
+                return JsonResponse({"code": 200, "succeeded": True})
+        except Exception as e:
+            return ErrorResponse(msg=str(e))
+
+        # serializer = LargeModelSerializer(data=data)
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     return JsonResponse({"code": 200, "succeeded": True})
+        # return JsonResponse({"code": 200, "succeeded": False})
 
     @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
     def get_all_model(self, request):
@@ -146,10 +190,10 @@ class LargeModelViewSet(GenericViewSet):
                 dataset.append(instance.dataset_name)
             data["args"]["dataset"]=dataset
             data["args"]["dataset_file"]=dataset_file
-            TcpScoket.send_data(json.dumps(data),task.resource)
+            TcpScoket.send_data(data,task.resource)
             return DetailResponse(data={'status': '正在开始训练'})
           elif data.get("type")=="stop_train":
-            TcpScoket.send_data(json.dumps(data),task.resource)
+            TcpScoket.send_data(data,task.resource)
             return DetailResponse(data={'status': '正在停止训练'})
       
       
@@ -186,4 +230,8 @@ class LargeModelViewSet(GenericViewSet):
                 return DetailResponse(data=serializer.data)
         return ErrorResponse()
     
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.AllowAny])
+    def test_command(self, request):
+         TcpScoket.send_data({"type":"get_checkpoints","args":{"output_path":"saves/Baichuan2-13B-Chat/lora/2024-03-11-16-52-10"}},'l40')
+         return ErrorResponse()
       

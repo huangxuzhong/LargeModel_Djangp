@@ -8,12 +8,13 @@ import configparser
 import time
 from app.utils.chat import ChatStorage
 import django
-
-from app.utils.messgae_handler import chat_task_list_handler, device_status_handler, loss_log_handler, train_status_handler
+from django.core.cache import cache  
+from app.utils.messgae_handler import chat_task_list_handler, device_status_handler, export_model_handler, get_checkpoints_handler, gpu_memory_list_handler, loss_log_handler, train_status_handler
 django.setup()#不加这句导入models会报exceptions.AppRegistryNotReady
 from app import models
 from app.utils.websocket import WebSocketManager  
-  
+from channels.db import database_sync_to_async    
+from django.db import transaction 
 
 class TcpScoket():
     read_buffer=queue.Queue() 
@@ -61,7 +62,7 @@ class TcpScoket():
         while True:
             time.sleep(5)
             if self.client_socket is not None:
-                TcpScoket.send_data({"type":"keepalive"},"server")
+               TcpScoket.send_data({"type":"keepalive"},"server")
            
 
     def __handle_read(self,stop_event):
@@ -84,10 +85,11 @@ class TcpScoket():
                 # 如果发生阻塞错误，说明没有数据可接收
                 continue
             except json.decoder.JSONDecodeError as e:
-                self.client_socket.recv(99999)#清空接收区缓存
+                # self.client_socket.recv(99999)#清空接收区缓存
                 print(f"JSON解析失败/n{msg.decode('utf-8')}")
             except ConnectionResetError:
                 print("socket连接失败")
+                self.client_socket.close()
                 self.send_stop_event.set()
                 timer = threading.Timer(5,   self.connect_to_server)#5秒后重新连接
                 timer.start()
@@ -111,16 +113,27 @@ class TcpScoket():
             WebSocketManager.add_message(json_msg)
         
         if response_type=="train_status":
-           train_status_handler(json_msg)
+           train_status_handler(json_msg,TcpScoket)
         #训练过程中的loss信息
         loss_value=json_msg.get("data").get("loss_value")
         if loss_value is not None:
             loss_log_handler(json_msg)
 
         #模型推理任务列表
-        
         if response_type=="chat_task_list":
             chat_task_list_handler(json_msg)
+            return
+        #gpu内存信息
+        if response_type=="gpu_memory_list":
+            gpu_memory_list_handler(json_msg)
+            return
+        #checkpoint列表
+        if response_type=="get_checkpoints":
+            get_checkpoints_handler(json_msg)
+            return
+        #模型合并结果
+        if response_type=="export_model":
+            export_model_handler(json_msg)
             return
 
         
@@ -147,13 +160,26 @@ class TcpScoket():
               
     @staticmethod
     def send_data(data,target):
+        if target !="server":
+            # 使用缓存来避免查询数据库          
+            device_list = cache.get("online_devices")  
+            is_online = target  in device_list if device_list is not None else False  
+            if not is_online:  
+                return False  
         body={"origin":TcpScoket.local_machine_id,"target":target,"data":data}
         str_body= bytes(json.dumps(body), 'utf-8')
         message = struct.pack('>I', len(str_body)) + str_body  
         TcpScoket.send_buffer.put(message)
+        return True
 
     def disconnect_to_server(self):
         # 关闭连接
         self.client_socket.close()
         self.send_thread.stop();
         self.read_thread.stop();
+
+
+# def get_device_by_key(target):  
+
+#     with transaction.atomic():  
+#         return models.Device.objects.filter(device_key=target).first()

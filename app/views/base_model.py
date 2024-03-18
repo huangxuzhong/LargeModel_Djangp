@@ -29,7 +29,7 @@ class BaseModelViewSet(GenericViewSet):
 
     #基座模型列表
     @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
-    def get_all_base_model(self, request):
+    def get_base_model_list(self, request):
    
         max_result = int(request.query_params.get('maxResult', 99999))
         skip_count = int(request.query_params.get('skipCount', 0))
@@ -44,3 +44,27 @@ class BaseModelViewSet(GenericViewSet):
         print(instances.query)
         serializer = BaseModelSerializer(instances[skip_count:skip_count + max_result], many=True)
         return DetailResponse(data={'total': len(instances), 'items': serializer.data})
+    
+
+    #删除基座模型
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAdminUser])
+    def delete_base_model_by_id(self, request):
+        id = request.query_params.get('id')
+        if id is not None and id != '':
+            if models.BaseModel.objects.filter(id=id).exists():
+                instances = models.BaseModel.objects.get(id=id)
+                instances.delete()
+                return DetailResponse()
+        return ErrorResponse()
+    
+    #创建基座模型
+    @action(methods=["POST"], detail=False, permission_classes=[rest_framework.permissions.IsAdminUser])
+    def create_base_model(self, request):
+        data = json.loads(request.body)
+        serializer = BaseModelSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse({"code": 200, "succeeded": True})
+        return JsonResponse({"code": 200, "succeeded": False})
+
+    
