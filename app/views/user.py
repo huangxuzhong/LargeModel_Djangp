@@ -9,6 +9,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 import rest_framework.permissions
 
 from app.utils.json_response import DetailResponse, ErrorResponse
+from app.utils.others import is_current_time_within_range
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -22,7 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = Users
         # exclude = ['password' ]
-        fields = ['id','username','email','is_active']
+        fields = ['id','username','email','is_active','validity_period_start','validity_period_end','is_use_validity_period']
         
 
 
@@ -63,6 +64,31 @@ class UserViewSet(GenericViewSet):
                 instance = models.Users.objects.get(id=user_id)
                 instance.is_active=is_active
                 instance.save()
+                return DetailResponse()
+        return ErrorResponse()
+    
+    #设置用户有效期
+    @action(methods=["POST"], detail=False, permission_classes=[rest_framework.permissions.IsAdminUser])
+    def set_user_validity_period(self, request):
+        data = json.loads(request.body)
+        user_id=data.get('user_id') 
+        is_use_validity_period=data.get('is_use_validity_period') 
+        validity_period_start=data.get('validity_period_start')
+        validity_period_end=data.get('validity_period_end')
+        if user_id is not None and user_id != '':
+            user=models.Users.objects.filter(id=user_id).first()
+            if  user is not None:
+                if is_use_validity_period is not None:
+                    user.is_use_validity_period=is_use_validity_period
+ 
+                user.validity_period_start=validity_period_start
+                user.validity_period_end=validity_period_end
+                if user.is_use_validity_period:
+                    if is_current_time_within_range(user.validity_period_start,user.validity_period_end):
+                        user.is_active=True
+                    else:
+                        user.is_active=False
+                user.save()
                 return DetailResponse()
         return ErrorResponse()
        

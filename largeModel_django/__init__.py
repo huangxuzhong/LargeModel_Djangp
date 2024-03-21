@@ -1,6 +1,7 @@
 import threading
 import django
 
+from app.utils.check_user_expired import RunCheckUserExpiration
 from app.utils.socket_client import TcpScoket
 
 from app.utils.websocket import WebSocketManager
@@ -13,5 +14,6 @@ def isKeyProcess():
 if (isKeyProcess()):
     websocket=WebSocketManager()
     instance=TcpScoket()
+    RunCheckUserExpiration()
     print("ssssssssssss")
    

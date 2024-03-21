@@ -179,6 +179,7 @@ class LargeModelViewSet(GenericViewSet):
     def control_train(self, request):
           data = json.loads(request.body)
           task_id=data.get("taskId")
+          data["taskId"]=f"model_{task_id}"
           task=models.Task.objects.get(id=task_id)
           if data.get("type")=="start_train":
             dataset=data.get("args").get("dataset")

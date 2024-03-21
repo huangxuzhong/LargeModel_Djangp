@@ -41,7 +41,7 @@ class DeviceViewSet(GenericViewSet):
         return DetailResponse(data={'total': len(instances), 'items': serializer.data})
    
     #删除设备
-    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAdminUser])
     def delete_device_by_id(self, request):
         my_id = request.query_params.get('id')
         if my_id is not None and my_id != '':
@@ -52,14 +52,17 @@ class DeviceViewSet(GenericViewSet):
         return ErrorResponse()
 
     #添加设备
-    @action(methods=["POST"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
-    def add_task(self,request):
+    @action(methods=["POST"], detail=False, permission_classes=[rest_framework.permissions.IsAdminUser])
+    def add_device(self,request):
         data = json.loads(request.body)
         serializer = DeviceSerializer(data=data)
         if serializer.is_valid():
             name_is_exit = models.Device.objects.filter(device_name=serializer.validated_data['device_name']).exists()
+            key_is_exit = models.Device.objects.filter(device_key=serializer.validated_data['device_key']).exists()
             if  name_is_exit:
                 return JsonResponse({"code": 200, "succeeded": False,"msg": "已存在同名设备，请更换设备名称!"})
+            if  key_is_exit:
+                return JsonResponse({"code": 200, "succeeded": False,"msg": "已存在同名key，请更改key名称!"})
             serializer.save()
             return JsonResponse({"code": 200, "succeeded": True})
         else:
@@ -67,6 +70,35 @@ class DeviceViewSet(GenericViewSet):
                for error in errors:  
                   print(f"Field '{field}': {error}")
         return JsonResponse({"code": 200, "succeeded": False})
+    
+
+    
+    #更改设备
+    @action(methods=["POST"], detail=False, permission_classes=[rest_framework.permissions.IsAdminUser])
+    def update_device_by_id(self, request):
+        data = json.loads(request.body)
+        id=data.get("id")
+        instance=models.Device.objects.filter(id=id).first()
+        if  instance is not None:
+           device_name=data.get('device_name')
+           device_key=data.get('device_key')
+           is_disable=data.get('is_disable')
+           if device_name is not None:
+                 existing_device = models.Device.objects.exclude(id=id).filter(device_name=device_name).first()  
+                 if existing_device:  
+                    return JsonResponse({"code": 200, "succeeded": False,"msg": "已存在同名设备，请更换设备名称!"})
+                 instance.device_name=device_name
+           if device_key is not None:
+                existing_device = models.Device.objects.exclude(id=id).filter(device_key=device_key).first()  
+                if existing_device:  
+                    return JsonResponse({"code": 200, "succeeded": False,"msg": "已存在同名key，请更改key名称!"})
+                instance.device_key=device_key
+           if is_disable is not None:
+                instance.is_disable=is_disable
+           instance.save()
+           return JsonResponse({"code": 200, "succeeded": True})     
+        return JsonResponse({"code": 200, "succeeded": False})
+
         
     
 

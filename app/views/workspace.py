@@ -89,18 +89,18 @@ class WorkspaceViewSet(GenericViewSet):
     
     
     
-    #发布/回收工作区
-    @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
-    def publish_workspace_by_id(self, request):  
-        id = int(request.query_params.get('id', -1))
-        published=request.query_params.get('published')=='true'
-        if id is not None and id != '':
-            if models.Workspace.objects.filter(id=id).exists():
-                instance = models.Workspace.objects.get(id=id)
-                instance.published=published
-                instance.save()
-                return DetailResponse()
-        return ErrorResponse()
+    # #发布/回收工作区
+    # @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
+    # def publish_workspace_by_id(self, request):  
+    #     id = int(request.query_params.get('id', -1))
+    #     published=request.query_params.get('published')=='true'
+    #     if id is not None and id != '':
+    #         if models.Workspace.objects.filter(id=id).exists():
+    #             instance = models.Workspace.objects.get(id=id)
+    #             instance.published=published
+    #             instance.save()
+    #             return DetailResponse()
+    #     return ErrorResponse()
     
     
     #chat
@@ -179,7 +179,7 @@ class ChatViewSet(ViewSet):
             "history":history,
             "uuid":uuid,
             },
-            "workspace_id":workspace_id,
+            "workspace_id":f"worksapce_{workspace_id}",
             "type":"chat"
         }
         TcpScoket.send_data(data,model.resource)
@@ -221,7 +221,7 @@ class ChatViewSet(ViewSet):
             "script_args":{
             "uuid":uuid,
             # "model_id":model_id,
-            "workspace_id":workspace_id,
+            "workspace_id":f"worksapce_{workspace_id}",
             "model_name_or_path":base_model.model_path,
             "template":template,
             "finetuning_type":"lora",
@@ -259,7 +259,7 @@ class ChatViewSet(ViewSet):
                     "uuid":uuid,
             # "workspace_id":workspace_id,
             },
-             "workspace_id":workspace_id,
+             "workspace_id":f"worksapce_{workspace_id}",
             "type":"unload_chat"
         }
         TcpScoket.send_data(data,model.resource)

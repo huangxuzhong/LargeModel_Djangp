@@ -11,7 +11,9 @@ from rest_framework import serializers
 class Users(AbstractUser):
     username = models.CharField(max_length=150, unique=True, db_index=True, verbose_name="用户账号",
                                 help_text="用户账号")
-
+    is_use_validity_period=models.BooleanField(default=False)#是否启用有效期
+    validity_period_start=models.DateTimeField(null=True)#有效期开始时间
+    validity_period_end=models.DateTimeField(null=True)#有效期结束时间
     # employee_no = models.CharField(max_length=150, unique=True, db_index=True, null=True, blank=True,
     #                                verbose_name="工号", help_text="工号")
     # email = models.EmailField(max_length=255, verbose_name="邮箱", null=True, blank=True, help_text="邮箱")
@@ -166,15 +168,7 @@ class LargeModelSerializer(serializers.ModelSerializer):
         model = LargeModel
         fields = '__all__'
 
-class TrainRecord(models.Model):
-    model_id = models.ForeignKey(LargeModel, on_delete=models.SET_NULL,null=True)
-    record_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, )
 
-    def __init__(self, model_id, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.model_id = model_id
-
-    pass
 
 
 class Dataset(models.Model):
@@ -202,6 +196,7 @@ class Device(models.Model):
     description= models.CharField(max_length=255, null=True, blank=True)
     is_online=models.BooleanField(default=False)
     gpu_memory=models.JSONField(null=True)
+    is_disable=models.BooleanField(default=False)#是否禁用
 
 
 class LoginLog(CoreModel):

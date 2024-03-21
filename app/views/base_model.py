@@ -67,4 +67,22 @@ class BaseModelViewSet(GenericViewSet):
             return JsonResponse({"code": 200, "succeeded": True})
         return JsonResponse({"code": 200, "succeeded": False})
 
+
+    #更改基座模型
+    @action(methods=["POST"], detail=False, permission_classes=[rest_framework.permissions.IsAdminUser])
+    def update_base_model_by_id(self, request):
+        data = json.loads(request.body)
+        id=data.get("id")
+        instance=models.BaseModel.objects.filter(id=id).first()
+        if  instance is not None:
+           name=data.get('name')
+           model_path=data.get('model_path')
+           if name is not None:
+                instance.name=name
+           if model_path is not None:
+                instance.model_path=model_path
+           instance.save()
+           return JsonResponse({"code": 200, "succeeded": True})     
+        return JsonResponse({"code": 200, "succeeded": False})
+
     
