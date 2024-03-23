@@ -19,7 +19,7 @@ from django.urls import path, include
 from rest_framework import routers
 
 import app
-from app.views.login import LoginView, DemoViewSet
+from app.views.login import CustomTokenRefreshView, LoginView, DemoViewSet
 from app.views.large_model import LargeModelViewSet
 from app.views.dataset import DatasetViewSet
 from app.views.user import UserViewSet
@@ -42,6 +42,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path("user/login", LoginView.as_view(), name="token_obtain_pair"),
     path("user/admin_login", LoginView.as_view(), name="token_obtain_pair"),
+    path("user/token_refresh",CustomTokenRefreshView.as_view())
     # path("chat/", chat,name="chat"),
     # path("users/get_user_info", DemoViewSet.as_view({'get': 'get_user_info'})),
     # path('user/tokentest',app.views.login.Demo.as_view()),

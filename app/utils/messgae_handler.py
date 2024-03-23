@@ -73,7 +73,7 @@ def loss_log_handler(json_msg:json):
 
 def chat_task_list_handler(json_msg: json):
     chat_task_list = json_msg.get("data").get('data') if json_msg.get("data").get('data') is not None else []
-    ready_workspace_id = [int(chat_task.get('workspace_id')) for chat_task in chat_task_list if chat_task.get('status') == 'ready']
+    ready_workspace_id = [int(chat_task.get('workspace_id').split("_")[1]) for chat_task in chat_task_list if chat_task.get('status') == 'ready']
     # 更新 ready 的 Workspace  
     models.Workspace.objects.filter(id__in=ready_workspace_id).update(published=True)  
     

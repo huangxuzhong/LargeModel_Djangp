@@ -115,8 +115,15 @@ class TaskViewSet(GenericViewSet):
 
     #获取所有已完成任务的名称
     @action(methods=["GET"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
-    def all_finished_task_name(self, request):
-        instances =[{"task_id":task.id,"task_name":task.task_name,"finetuning_type":task.get_finetuning_type()} for task in models.Task.objects.filter(status="finish")] 
+    def filter_task(self, request):
+        q_objects = Q()
+        status=request.query_params.get('status')
+        if status is not None:
+            q_objects&=Q(status=status)
+        stage=request.query_params.get('stage')
+        if stage is not None:
+                q_objects&=Q(config__stage=stage)#查询json字段
+        instances =[{"task_id":task.id,"task_name":task.task_name,"finetuning_type":task.get_finetuning_type()} for task in models.Task.objects.filter(q_objects)] 
         return DetailResponse(data={'total': len(instances), 'items': instances})
     
     #获取指定任务的checkpoints

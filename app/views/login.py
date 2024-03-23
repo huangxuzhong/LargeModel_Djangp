@@ -109,12 +109,23 @@ class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         refresh_token = request.data.get("refresh")
         try:
-            token = RefreshToken(refresh_token)
+            refresh = RefreshToken(refresh_token)
+            # 获取与刷新令牌关联的用户对象  
+            user_id = refresh.payload.get('user_id')
+           
+           
+            user = models.Users.objects.filter(id=user_id).first()  
+            if not user.is_active:
+                raise Exception("用户未激活")
+             # 创建一个新的 refresh token
+            new_refresh = RefreshToken.for_user(user)  
             data = {
-                "access": str(token.access_token),
-                "refresh": str(token)
+                "access": str(refresh.access_token),
+                # "refresh": str(refresh)
+                "refresh": str(new_refresh)
             }
-        except:
+        except Exception as e:
+            print(e)
             return ErrorResponse(status=HTTP_401_UNAUTHORIZED)
         return DetailResponse(data=data)
 
