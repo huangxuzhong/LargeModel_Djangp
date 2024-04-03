@@ -54,11 +54,10 @@ class ErrorResponse(Response):
     (1)默认错误码返回200, 也可以指定其他返回码:ErrorResponse(code=xxx)
     """
 
-    def __init__(self, data=None, msg='error', code=200, status=None, template_name=None, headers=None,
+    def __init__(self,  msg=None, code=200, status=None, template_name=None, headers=None,
                  exception=False, content_type=None):
         std_data = {
             "code": code,
-            "data": data,
             "msg": msg,
             "succeeded": False
         }

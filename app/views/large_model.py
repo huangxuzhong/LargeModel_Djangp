@@ -185,16 +185,21 @@ class LargeModelViewSet(GenericViewSet):
             dataset=data.get("args").get("dataset")
             instances =models.Dataset.objects.filter(dataset_name__in=dataset)
             dataset_file=[]
+            is_rank_dataset=[]
             dataset=[]
             for instance in instances:
                 dataset_file.append(instance.resource)
+                is_rank_dataset.append(instance.is_rank_dataset)
                 dataset.append(instance.dataset_name)
             data["args"]["dataset"]=dataset
             data["args"]["dataset_file"]=dataset_file
-            TcpScoket.send_data(data,task.resource)
+            data["args"]["is_rank_dataset"]=is_rank_dataset
+            flag=TcpScoket.send_data(data,task.device.device_key)
+            if not flag:
+                return ErrorResponse("启动失败，服务器当前不在线！")
             return DetailResponse(data={'status': '正在开始训练'})
           elif data.get("type")=="stop_train":
-            TcpScoket.send_data(data,task.resource)
+            TcpScoket.send_data(data,task.device.device_key)
             return DetailResponse(data={'status': '正在停止训练'})
       
       
@@ -210,12 +215,11 @@ class LargeModelViewSet(GenericViewSet):
             dataset_json.append({"id":dataset.id,"label":dataset.dataset_name,"resource":dataset.resource})
         
         # 使用列表推导式  
-        device_list = [{'id': device.device_key, 'label': device.device_name} for device in models.Device.objects.all()]  
+        device_list = [{'id': device.id, 'label': device.device_name} for device in models.Device.objects.all()]  
         args={
             "base":base_json,
             "type": [{ "id": 'text_chat', "label": '文本对话' }],
             "resource":device_list,
-            # "resource": [{ "id": '4090', "label": '4090服务器'},{ "id": 'v100', "label": 'V100服务器', },{ "id": 'l40', "label": 'L40*2'}],
             "dataset": dataset_json,
         }
         return DetailResponse(data={"args":args})

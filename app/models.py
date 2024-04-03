@@ -28,26 +28,7 @@ class Users(AbstractUser):
     # gender = models.IntegerField(
     #     choices=GENDER_CHOICES, default=0, verbose_name="性别", null=True, blank=True, help_text="性别"
     # )
-    # USER_TYPE = (
-    #     (0, "后台用户"),
-    #     (1, "前台用户"),
-    # )
-    # user_type = models.IntegerField(
-    #     choices=USER_TYPE, default=0, verbose_name="用户类型", null=True, blank=True, help_text="用户类型"
-    # )
-    # post = models.ManyToManyField(to="Post", blank=True, verbose_name="关联岗位", db_constraint=False,
-    #                               help_text="关联岗位")
-    # role = models.ManyToManyField(to="Role", blank=True, verbose_name="关联角色", db_constraint=False,
-    #                               help_text="关联角色")
-    # dept = models.ForeignKey(
-    #     to="Dept",
-    #     verbose_name="所属部门",
-    #     on_delete=models.PROTECT,
-    #     db_constraint=False,
-    #     null=True,
-    #     blank=True,
-    #     help_text="关联部门",
-    # )
+   
     # last_token = models.CharField(max_length=255, null=True, blank=True, verbose_name="最后一次登录Token",
     #                               help_text="最后一次登录Token")
 
@@ -90,6 +71,17 @@ class BaseModel(models.Model):
     name= models.CharField(max_length=255, null=True, blank=True)
     model_path=models.CharField(max_length=255, null=True, blank=True)
 
+
+
+class Device(models.Model):
+    device_name = models.CharField(max_length=2552)
+    device_key= models.CharField(max_length=50,unique=True)
+    create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, blank=True)
+    description= models.CharField(max_length=255, null=True, blank=True)
+    is_online=models.BooleanField(default=False)
+    gpu_memory=models.JSONField(null=True)
+    is_disable=models.BooleanField(default=False)#是否禁用
+
 #模型训练任务    
 class Task(models.Model):
     task_name = models.CharField(max_length=255, null=True, blank=True)
@@ -101,7 +93,7 @@ class Task(models.Model):
     adapter_name_or_path=models.CharField(max_length=255, null=True, blank=True, default='')
     output_dir=models.CharField(max_length=255, null=True, blank=True, default='')
     model_params=models.JSONField(null=True)
-    resource = models.CharField(max_length=255, null=True, blank=True)
+    device=models.ForeignKey(Device,null=True, on_delete=models.SET_NULL)
     loss_log=models.JSONField( null=True)
     checkpoints=models.JSONField( null=True)
    
@@ -177,7 +169,7 @@ class Dataset(models.Model):
     description = models.CharField(max_length=255, null=True, blank=True)
     resource = models.CharField(max_length=255, null=True, blank=True)
     create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, )
-   
+    is_rank_dataset=models.BooleanField(default=False,null=False)#是否偏好数据集
 class Workspace(models.Model):
     workspace_name = models.CharField(max_length=255, null=True, blank=True)
     description = models.CharField(max_length=255, null=True, blank=True)
@@ -188,15 +180,6 @@ class Workspace(models.Model):
   
 
 
-
-class Device(models.Model):
-    device_name = models.CharField(max_length=2552)
-    device_key= models.CharField(max_length=50,unique=True)
-    create_time = models.DateTimeField(auto_created=True, auto_now_add=True, null=True, blank=True)
-    description= models.CharField(max_length=255, null=True, blank=True)
-    is_online=models.BooleanField(default=False)
-    gpu_memory=models.JSONField(null=True)
-    is_disable=models.BooleanField(default=False)#是否禁用
 
 
 class LoginLog(CoreModel):

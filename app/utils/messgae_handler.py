@@ -72,15 +72,16 @@ def loss_log_handler(json_msg:json):
 
 
 def chat_task_list_handler(json_msg: json):
+    device_key=json_msg.get("origin")
     chat_task_list = json_msg.get("data").get('data') if json_msg.get("data").get('data') is not None else []
     ready_workspace_id = [int(chat_task.get('workspace_id').split("_")[1]) for chat_task in chat_task_list if chat_task.get('status') == 'ready']
     # 更新 ready 的 Workspace  
     models.Workspace.objects.filter(id__in=ready_workspace_id).update(published=True)  
     
-    # 获取所有 Workspace 的 ID  
-    all_workspace_ids = set(models.Workspace.objects.values_list('id', flat=True))  
+    # 获取该gpu服务器上所有 Workspace 的 ID  
+    all_workspace_ids = set(models.Workspace.objects.filter(model__resource=device_key).values_list('id', flat=True))  
     
-    # 在 Python 中找出所有不在 ready_workspace_id 中的 Workspace 的 ID  
+    # 找出该gpu服务器上所有不在 ready_workspace_id 中的 Workspace 的 ID  
     unready_workspace_ids = all_workspace_ids - set(ready_workspace_id)  
     
     # 更新剩下的 Workspace 为 not published  

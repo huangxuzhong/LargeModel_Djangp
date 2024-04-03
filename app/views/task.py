@@ -16,6 +16,8 @@ class TaskSerializer(serializers.ModelSerializer):
     create_time = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S',allow_null=True)
     start_time = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S',allow_null=True)
     end_time = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S',allow_null=True)
+    device_name = serializers.SerializerMethodField()  
+
     def to_internal_value(self, data):
         # 在这里对data进行预处理
         data['create_time'] = datetime.now()
@@ -26,6 +28,9 @@ class TaskSerializer(serializers.ModelSerializer):
         # data["resource"]=data['model_params']['resource']
         return super().to_internal_value(data)
     
+    def get_device_name(sefl,obj):
+        return  obj.device.device_name if obj.device is not None else None
+   
     class Meta:
         model = Task
 
@@ -56,6 +61,7 @@ class TaskViewSet(GenericViewSet):
             end_time = datetime.strptime(create_time, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
             q_objects &= Q(create_time__gte=start_time) & Q(create_time__lte=end_time)
         instances = models.Task.objects.filter(q_objects)
+
         # 查看sql语句
         print(instances.query)
         serializer = TaskSerializer(instances[skip_count:skip_count + max_result], many=True)
@@ -76,6 +82,7 @@ class TaskViewSet(GenericViewSet):
     @action(methods=["POST"], detail=False, permission_classes=[rest_framework.permissions.IsAuthenticated])
     def add_task(self,request):
         data = json.loads(request.body)
+        data["device"]=models.Device.objects.filter(id=data.get('resource')).first().id
         serializer = TaskSerializer(data=data)
         if serializer.is_valid():
             name_is_exit = models.Task.objects.filter(task_name=serializer.validated_data['task_name']).exists()

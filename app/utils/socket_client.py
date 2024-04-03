@@ -13,8 +13,7 @@ from app.utils.messgae_handler import chat_task_list_handler, device_status_hand
 django.setup()#不加这句导入models会报exceptions.AppRegistryNotReady
 from app import models
 from app.utils.websocket import WebSocketManager  
-from channels.db import database_sync_to_async    
-from django.db import transaction 
+
 
 class TcpScoket():
     read_buffer=queue.Queue() 
@@ -27,7 +26,10 @@ class TcpScoket():
         self.server_port = config.get('server', 'port')  
         self.server_ip = config.get('server', 'ip')
         TcpScoket.local_machine_id=config.get('local', 'device_id')
+        self.lock = threading.Lock()#connect_to_server()锁
         self.running=True
+        self.need_reconnect=True#是否需要重新建立链接标志
+        self.client_socket=None
         self.run()
        
 
@@ -42,20 +44,24 @@ class TcpScoket():
         self.keep_alvie_thread.start()
 
     def connect_to_server(self):
-        
-        while self.running :
-          
-            try:
-                # 创建socket对象
-                self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                # 连接服务器
-                self.client_socket.connect((self.server_ip, int(self.server_port)))
-                # self.client_socket.setblocking(False)
-                TcpScoket.send_data('我是web服务程序',"server")
-                TcpScoket.send_data('请转发给llama1',"llama1")
+        with self.lock:
+            if not self.need_reconnect:
                 return
-            except Exception as e:
-                time.sleep(5)
+            self.close_connection()  
+            while self.running :
+                
+                try:
+                    # 创建socket对象
+                    self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    # 连接服务器
+                    self.client_socket.connect((self.server_ip, int(self.server_port)))
+                    # self.client_socket.setblocking(False)
+                    TcpScoket.send_data('我是web服务程序',"server")
+                    TcpScoket.send_data('请转发给llama1',"llama1")
+                    self.need_reconnect=False
+                    return
+                except Exception as e:
+                    time.sleep(5)
         
           
     
@@ -85,8 +91,8 @@ class TcpScoket():
                 # 读取消息内容  
                 msg = self.client_socket.recv(message_length)
             except Exception as e:
-                print("socket连接失败")
-                self.close_connection()  
+                print("socket接受失败")
+                self.need_reconnect=True
                 self.connect_to_server()
                 continue
             try:  
@@ -110,9 +116,9 @@ class TcpScoket():
                 data=self.send_buffer.get(block=True)
                 self.client_socket.send(data)
               except Exception as e:                 
-                print("socket连接失败")
+                print("socket发送失败")
                 print(e)
-                self.close_connection()  
+                self.need_reconnect=True
                 self.connect_to_server()
             
                 
@@ -126,7 +132,7 @@ class TcpScoket():
         #算力服务器状态信息
         if response_type=='devices_status':
             device_status_handler(json_msg)
-            return;
+            return
         # if response_type=="chat":
         if uuid is not None:   
             ChatStorage.add_message(json_msg.get("data"))
