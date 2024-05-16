@@ -128,10 +128,13 @@ def chat_task_list_handler(json_msg: json):
         for chat_task in chat_task_list
         if chat_task.get("status") == "ready"
     ]
-    cache_ready_workspace_id = cache.get("ready_workspace_ids", [])
-    set1 = set(ready_workspace_id)
-    set2 = set(cache_ready_workspace_id)
-    if set1.issubset(set2):
+    key_name=f"ready_workspace_ids_on{device_key}"
+    cache_ready_workspace_id = cache.get(key_name, None)
+    
+    
+    set1 = set(ready_workspace_id )
+    set2 = set(cache_ready_workspace_id if cache_ready_workspace_id is not None else [])
+    if cache_ready_workspace_id is not None and set1==set2:
         return
     # 更新 ready 的 Workspace
     models.Workspace.objects.filter(id__in=ready_workspace_id).update(published=True)
@@ -154,6 +157,7 @@ def chat_task_list_handler(json_msg: json):
     all_ready_workspace_ids = list(
         models.Workspace.objects.filter(published=True).values_list("id", flat=True)
     )
+    cache.set(key_name, ready_workspace_id)
     cache.set("ready_workspace_ids", all_ready_workspace_ids)
 
 
