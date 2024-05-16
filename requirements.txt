@@ -9,3 +9,5 @@ django-cors-headers
 websockets
 ijson
 channels
+datasets
+Pillow
