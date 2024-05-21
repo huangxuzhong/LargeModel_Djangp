@@ -1,6 +1,8 @@
 import base64
 from datetime import datetime
 import io
+import shutil
+import stat
 from urllib.parse import quote, urlencode
 
 from django.db.models import Q
@@ -13,7 +15,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 import rest_framework.permissions
 from app import models
 from app.models import Dataset
-from app.utils.file import read_specific_element_from_json_array_with_ijson
+from app.utils.file import (
+    add_dir_to_zip,
+    read_specific_element_from_json_array_with_ijson,
+)
 from app.utils.json_response import DetailResponse, ErrorResponse, SuccessResponse
 
 
@@ -143,6 +148,7 @@ class DatasetViewSet(GenericViewSet):
                 try:
                     with zipfile.ZipFile(file_path, "r") as zip_ref:
                         zip_ref.extractall(os.path.join("uploads", "datasets"))
+                        file_path = file_path.rstrip(".zip")
                 except zipfile.BadZipFile:
                     return ErrorResponse("上传的文件不是一个有效的ZIP文件。")
                 except Exception as e:
@@ -183,7 +189,31 @@ class DatasetViewSet(GenericViewSet):
                 f"attachment;filename*=UTF-8''{utf8_encoded_string}"
             )
 
-            # with open(file_path, 'rb') as f:
+            return response
+        elif os.path.isdir(file_path):
+            # 如果是文件夹，则压缩文件夹并返回压缩文件
+            zip_filename = os.path.basename(file_path) + ".zip"
+            zip_dir_path = os.path.join("uploads", "datasets", "zip")
+            zip_file_path = os.path.join(zip_dir_path, zip_filename)
+            if not os.path.isfile(zip_file_path):
+                if not os.path.isdir(zip_dir_path):
+                    os.mkdir(zip_dir_path)
+                # 创建一个ZipFile对象来写入压缩文件
+                with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                    add_dir_to_zip(zipf, file_path)
+
+            response = FileResponse(open(zip_file_path, "rb"))
+            utf8_encoded_string = quote(
+                os.path.basename(zip_file_path), encoding="utf-8"
+            )
+            response["Content-Type"] = "application/octet-stream"
+            response["Content-Disposition"] = (
+                f"attachment;filename*=UTF-8''{utf8_encoded_string}"
+            )
+
+            # 清理临时压缩文件（可选，取决于你是否需要保留它）
+            # os.remove(zip_file_path)
+
             return response
         else:
             return ErrorResponse(msg="文件不存在")
@@ -238,14 +268,13 @@ class DatasetViewSet(GenericViewSet):
         dir = dataset.resource.rstrip(".zip")
         # dir=os.path.join('uploads','datasets',dataset.resource.rstrip(".zip"))
         if os.path.exists(dir):
-            data = load_dataset(dir, split="train")
-            # data = load_from_disk(dir)
-            # data = load_dataset(path="csv", data_files=dir, split="train")
+            try:
+                data = load_dataset(dir, split="train")
+            except ValueError:
+                data = load_from_disk(dir)
             items = []
             for i in range(skip_count, min(max_result + skip_count, len(data))):
                 image = data[i]["image"]
-                # image_bytes = data[i]["image"][10:-2]
-                # img_str = base64.b64encode(image_bytes).decode("utf-8")
                 buffered = io.BytesIO()
                 image.save(buffered, format="JPEG")  # 或者使用其他格式，如PNG
                 img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
@@ -279,18 +308,42 @@ class DatasetViewSet(GenericViewSet):
         dir = dataset.resource.rstrip(".zip")
 
         if os.path.exists(dir):
-            data = load_dataset(dir, split="train")
+            try:
+                data = load_dataset(dir, split="train")
+            except ValueError:
+                data = load_from_disk(dir)
 
-            def ff(data):
-                data["text"] = "My sentence: " + data["text"]  # 每一个句子都增加前缀
+            def ff(data, i):
+                if i == index:
+                    data["text"] = new_text
                 return data
 
-            datatset_map = data.map(ff)
-            print(datatset_map)
             if index < len(data):
+                # 修改数据集
+                data = data.map(ff, with_indices=True)
 
-                # data[index]["text"] = new_text
-                datatset_map.save_to_disk("./test_save")
+                def remove_readonly(
+                    func, path, _
+                ):  # 错误回调函数，改变只读属性位，重新删除
+                    "Clear the readonly bit and reattempt the removal"
+                    os.chmod(path, stat.S_IWRITE)
+                    func(path)
+
+                # 删除元素数据集
+                shutil.rmtree(dir, onerror=remove_readonly)
+                zip_filename = os.path.basename(dataset.resource) + ".zip"
+                zip_file_path = os.path.join("uploads", "datasets", "zip", zip_filename)
+                if os.path.isfile(zip_file_path):
+                    os.unlink(file_path)
+                # 保存新数据集
+                file_path = os.path.join(
+                    "uploads",
+                    "datasets",
+                    f"{dataset.dataset_name}_{ datetime.now().timestamp()}",
+                )
+                data.save_to_disk(file_path)
+                dataset.resource = file_path
+                dataset.save()
                 return SuccessResponse()
             else:
                 return ErrorResponse(msg="下标超出索引范围")

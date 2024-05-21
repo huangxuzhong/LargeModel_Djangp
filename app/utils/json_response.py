@@ -16,19 +16,22 @@ class SuccessResponse(Response):
     (1)默认code返回200, 不支持指定其他返回码
     """
 
-    def __init__(self, data=None, msg='success', status=None, template_name=None, headers=None, exception=False,
-                 content_type=None,page=1,limit=1,total=1):
+    def __init__(
+        self,
+        msg="success",
+        status=None,
+        template_name=None,
+        headers=None,
+        exception=False,
+        content_type=None,
+    ):
         std_data = {
             "code": 200,
-            "data": {
-                "page": page,
-                "limit": limit,
-                "total": total,
-                "data": data
-            },
-            "msg": msg
+            "data": {"code": 200, "msg": msg, "succeeded": True},
         }
-        super().__init__(std_data, status, template_name, headers, exception, content_type)
+        super().__init__(
+            std_data, status, template_name, headers, exception, content_type
+        )
 
 
 class DetailResponse(Response):
@@ -37,15 +40,20 @@ class DetailResponse(Response):
     (1)默认code返回200, 不支持指定其他返回码
     """
 
-    def __init__(self, data=None, msg='success', status=None, template_name=None, headers=None, exception=False,
-                 content_type=None,):
-        std_data = {
-            "code": 200,
-            "data": data,
-            "msg": msg,
-            "succeeded": True
-        }
-        super().__init__(std_data, status, template_name, headers, exception, content_type)
+    def __init__(
+        self,
+        data=None,
+        msg="success",
+        status=None,
+        template_name=None,
+        headers=None,
+        exception=False,
+        content_type=None,
+    ):
+        std_data = {"code": 200, "data": data, "msg": msg, "succeeded": True}
+        super().__init__(
+            std_data, status, template_name, headers, exception, content_type
+        )
 
 
 class ErrorResponse(Response):
@@ -54,11 +62,17 @@ class ErrorResponse(Response):
     (1)默认错误码返回200, 也可以指定其他返回码:ErrorResponse(code=xxx)
     """
 
-    def __init__(self,  msg=None, code=200, status=None, template_name=None, headers=None,
-                 exception=False, content_type=None):
-        std_data = {
-            "code": code,
-            "msg": msg,
-            "succeeded": False
-        }
-        super().__init__(std_data, status, template_name, headers, exception, content_type)
+    def __init__(
+        self,
+        msg=None,
+        code=200,
+        status=None,
+        template_name=None,
+        headers=None,
+        exception=False,
+        content_type=None,
+    ):
+        std_data = {"code": code, "msg": msg, "succeeded": False}
+        super().__init__(
+            std_data, status, template_name, headers, exception, content_type
+        )
