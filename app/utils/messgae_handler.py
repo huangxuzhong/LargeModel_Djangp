@@ -73,15 +73,13 @@ def device_status_handler(json_msg: json):
             flag = True
     if not flag:
         return
-    new_list=online_devices if online_devices is not None else []
+    new_list = online_devices if online_devices is not None else []
     new_list.append(device_key)
-    cache.set(
-        "online_devices", new_list, timeout=100
-    )  # 设置一个缓存超时时间
+    cache.set("online_devices", new_list, timeout=100)  # 设置一个缓存超时时间
     devices = models.Device.objects.all()
     for device in devices:
         online = device.device_key in new_list
-        device.is_online = True
+        device.is_online = online
         device.save()
 
 
@@ -94,14 +92,15 @@ def device_status_handler(json_msg: json):
 #             device_list={}
 #             for key in device_status.keys():
 #                 last_online_time=device_status[key]["last_online_time"]
-#                 # 计算时间差  
+#                 # 计算时间差
 #                 time_difference = cur_time - last_online_time
 #                 if   time_difference.total_seconds()>15:
 #                     device_status[key]["is_online"]=False
 #                 device_list[key]={"is_online": device_status[key]["is_online"]}
-            
+
 #         except Exception as e:
 #             print(e)
+
 
 def loss_log_handler(json_msg: json):
     loss_value = json_msg.get("data").get("loss_value")
@@ -166,13 +165,12 @@ def chat_task_list_handler(json_msg: json):
         for chat_task in chat_task_list
         if chat_task.get("status") == "ready"
     ]
-    key_name=f"ready_workspace_ids_on{device_key}"
+    key_name = f"ready_workspace_ids_on{device_key}"
     cache_ready_workspace_id = cache.get(key_name, None)
-    
-    
-    set1 = set(ready_workspace_id )
+
+    set1 = set(ready_workspace_id)
     set2 = set(cache_ready_workspace_id if cache_ready_workspace_id is not None else [])
-    if cache_ready_workspace_id is not None and set1==set2:
+    if cache_ready_workspace_id is not None and set1 == set2:
         return
     # 更新 ready 的 Workspace
     models.Workspace.objects.filter(id__in=ready_workspace_id).update(published=True)
