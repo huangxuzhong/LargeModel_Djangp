@@ -12,6 +12,7 @@ from app import models
 from app.models import LargeModel
 from app.utils.json_response import DetailResponse, ErrorResponse
 
+from app.utils.rabbitmq_comm import Comm
 from app.utils.socket_client import TcpSocket
 
 
@@ -98,7 +99,7 @@ class LargeModelViewSet(GenericViewSet):
                     },
                 )
                 export_model_task.save()
-                flag = TcpSocket.send_data(
+                flag = Comm.send_data(
                     {
                         "type": "export_model",
                         "taskId": f"export_{export_model_task.id}",
@@ -238,12 +239,12 @@ class LargeModelViewSet(GenericViewSet):
             data["args"]["dataset_file"] = dataset_file
             data["args"]["is_rank_dataset"] = is_rank_dataset
             data["args"]["prompt_column_name"] = prompt_column_names
-            flag = TcpSocket.send_data(data, task.device.device_key)
+            flag = Comm.send_data(data, task.device.device_key)
             if not flag:
                 return ErrorResponse("启动失败，服务器当前不在线！")
             return DetailResponse(data={"status": "正在开始训练"})
         elif data.get("type") == "stop_train":
-            TcpSocket.send_data(data, task.device.device_key)
+            Comm.send_data(data, task.device.device_key)
             return DetailResponse(data={"status": "正在停止训练"})
 
     @action(
@@ -313,7 +314,7 @@ class LargeModelViewSet(GenericViewSet):
             repo_name=repo_name,
         )
         upload_model_task.save()
-        flag = TcpSocket.send_data(
+        flag = Comm.send_data(
             {
                 "type": "upload_model_to_hf",
                 "taskId": f"upload_{upload_model_task.id}",
@@ -336,7 +337,7 @@ class LargeModelViewSet(GenericViewSet):
         permission_classes=[rest_framework.permissions.AllowAny],
     )
     def test_command(self, request):
-        TcpSocket.send_data(
+        Comm.send_data(
             {
                 "type": "get_checkpoints",
                 "args": {

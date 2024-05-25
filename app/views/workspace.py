@@ -18,6 +18,7 @@ from adrf.viewsets import ViewSet
 
 from asgiref.sync import sync_to_async
 
+from app.utils.rabbitmq_comm import Comm
 from app.utils.socket_client import TcpSocket
 
 
@@ -206,7 +207,7 @@ class ChatViewSet(ViewSet):
             "type": type,
         }
         device_key = await sync_to_async(model.get_device_key_sync)()
-        TcpSocket.send_data(data, device_key)
+        Comm.send_data(data, device_key)
         try:
             response = await ChatStorage.async_get_message(uuid, timeout=60)
             return DetailResponse(data={"response": response})
@@ -261,7 +262,7 @@ class ChatViewSet(ViewSet):
         if adapter_name_or_path is not None and adapter_name_or_path != "":
             data["script_args"]["adapter_name_or_path"] = adapter_name_or_path
         device_key = await sync_to_async(model.get_device_key_sync)()
-        TcpSocket.send_data(data, device_key)
+        Comm.send_data(data, device_key)
         try:
             response = await ChatStorage.async_get_message(uuid, timeout=60)
             if response:
@@ -295,7 +296,7 @@ class ChatViewSet(ViewSet):
             "type": type,
         }
         device_key = await sync_to_async(model.get_device_key_sync)()
-        TcpSocket.send_data(data, device_key)
+        Comm.send_data(data, device_key)
         try:
             response = await ChatStorage.async_get_message(uuid, timeout=60)
             if response:

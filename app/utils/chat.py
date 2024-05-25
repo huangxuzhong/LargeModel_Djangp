@@ -1,22 +1,30 @@
 import asyncio
 from datetime import datetime
 import threading
+from django.core.cache import cache
 
 
 class ChatStorage:
-    msgs = {}
+    # msgs = {}
 
     @staticmethod
     def add_message(msg):
         uuid = msg.get("uuid")
         response = msg.get("result")
-        ChatStorage.msgs[uuid] = {"response": response, "create_time": datetime.now()}
+        cache.set(
+            f"chatmsg_{uuid}",
+            {"response": response, "create_time": datetime.now()},
+            timeout=600,
+        )  # 设置一个缓存超时时间
+        # ChatStorage.msgs[uuid] = {"response": response, "create_time": datetime.now()}
 
     @staticmethod
     def get_message(uuid):
-        msg = ChatStorage.msgs.get(uuid)
-        if msg is not None:
-            del ChatStorage.msgs[uuid]
+
+        msg = cache.get(f"chatmsg_{uuid}")
+        # msg = ChatStorage.msgs.get(uuid)
+        # if msg is not None:
+        #     del ChatStorage.msgs[uuid]
         return msg["response"] if msg is not None else None
 
     @staticmethod
@@ -38,35 +46,36 @@ class ChatStorage:
         except asyncio.TimeoutError as e:
             raise e
 
-    @staticmethod
-    # 清除10分钟内未被读取的消息
-    def clear_messages():
-        keys_to_delete = []
-        for key in ChatStorage.msgs:
-            delta = datetime.now() - ChatStorage.msgs[key]["create_time"]
-            # 获取差值的秒数
-            seconds_difference = delta.total_seconds()
-            if seconds_difference > 600:
-                keys_to_delete.append(key)
-        # 在迭代结束后删除这些键
-        for key in keys_to_delete:
-            del ChatStorage.msgs[key]
 
-    @staticmethod
-    def start_cleanup_timer(interval=600):
+#     @staticmethod
+#     # 清除10分钟内未被读取的消息
+#     def clear_messages():
+#         keys_to_delete = []
+#         for key in ChatStorage.msgs:
+#             delta = datetime.now() - ChatStorage.msgs[key]["create_time"]
+#             # 获取差值的秒数
+#             seconds_difference = delta.total_seconds()
+#             if seconds_difference > 600:
+#                 keys_to_delete.append(key)
+#         # 在迭代结束后删除这些键
+#         for key in keys_to_delete:
+#             del ChatStorage.msgs[key]
 
-        def cleanup():
+#     @staticmethod
+#     def start_cleanup_timer(interval=600):
 
-            ChatStorage.clear_messages()
+#         def cleanup():
 
-            ChatStorage.start_cleanup_timer(interval)  # 递归调用以保持定时器运行
+#             ChatStorage.clear_messages()
 
-        timer = threading.Timer(interval, cleanup)
+#             ChatStorage.start_cleanup_timer(interval)  # 递归调用以保持定时器运行
 
-        timer.start()
+#         timer = threading.Timer(interval, cleanup)
+
+#         timer.start()
 
 
-ChatStorage.start_cleanup_timer(600)
+# ChatStorage.start_cleanup_timer(600)
 
 
 # async def my_coroutine():

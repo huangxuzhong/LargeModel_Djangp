@@ -2,6 +2,7 @@ import threading
 import django
 
 from app.utils.check_user_expired import RunCheckUserExpiration
+from app.utils.rabbitmq_comm import Comm
 from app.utils.socket_client import TcpSocket
 
 from app.utils.websocket import WebSocketManager
@@ -17,7 +18,9 @@ def isKeyProcess():
 
 
 if isKeyProcess():
-    websocket = WebSocketManager()
-    instance = TcpSocket()
+    # websocket = WebSocketManager()
+    comm = Comm()
+    threading.Thread(target=comm.start).start()
+    # instance = TcpSocket()
     RunCheckUserExpiration()
     print("everything is ready")

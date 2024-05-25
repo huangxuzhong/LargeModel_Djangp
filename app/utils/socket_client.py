@@ -20,6 +20,7 @@ from app.utils.messgae_handler import (
     loss_log_handler,
     train_status_handler,
 )
+from django_redis import get_redis_connection
 
 django.setup()  # 不加这句导入models会报exceptions.AppRegistryNotReady
 from app import models
@@ -154,7 +155,14 @@ class TcpSocket:
         if uuid is not None:
             ChatStorage.add_message(json_msg.get("data"))
         else:  # 训练过程中产生的输出信息
-            WebSocketManager.add_message(json_msg)
+            # WebSocketManager.add_message(json_msg)
+            con = get_redis_connection("default")
+
+            # cached_train_logs = cache.get("train_logs", [])
+            # 对列表进行修改
+            # cached_train_logs.append(json_msg)
+            con.rpush("train_logs", json.dumps(json_msg))
+            # cache.set("train_logs", cached_train_logs)
 
         if response_type == "train_status":
             train_status_handler(json_msg, TcpSocket)
