@@ -35,9 +35,11 @@ class Comm:
     channel = None
     connected = False
     instance = None
+    
 
     def __init__(self) -> None:
         Comm.instance = self
+        Comm.public_lock=threading.Lock()
 
     def start(self):
         if Comm.connected:
@@ -53,6 +55,10 @@ class Comm:
             pika.ConnectionParameters(server_ip, 5672, "/", user_info)
         )
         Comm.channel = Comm.connection.channel()
+        Comm.public_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(server_ip, 5672, "/", user_info)
+        )
+        Comm.public_channel = Comm.public_connection.channel()
 
         # 如果指定的queue不存在，则会创建一个queue，如果已经存在 则不会做其他动作，生产者和消费者都做这一步的好处是
         # 这样生产者和消费者就没有必要的先后启动顺序了
@@ -70,8 +76,9 @@ class Comm:
         )
 
         # 一直处于等待接收消息的状态，如果没收到消息就一直处于阻塞状态，收到消息就调用上面的回调函数
-        Comm.channel.start_consuming()
         Comm.connected = True
+        Comm.channel.start_consuming()
+        
         # self.run()
 
     # def run(self):
@@ -95,8 +102,8 @@ class Comm:
             self._handle_msg(json_msg)
         except json.decoder.JSONDecodeError as e:
             print(f"JSON解析失败:{msg.decode('utf-8')}")
-        except Exception as e:
-            print("处理数据异常：{},数据{msg}")
+        # except Exception as e:
+        #     print(f"处理数据异常:{e},数据{msg}")
 
     def _handle_msg(self, json_msg):
         # response_type=json_msg.get("data").get("response_type")
@@ -105,22 +112,14 @@ class Comm:
         response_type = json_msg.get("data").get("response_type")
         if json_msg.get("task") is not None:
             json_msg["task"] = json_msg.get("task").split("_")[1]
-        # 算力服务器状态信息
-        if response_type == "devices_status":
-            device_status_handler(json_msg)
-            return
+        # # 算力服务器状态信息
+        # if response_type == "devices_status":
+        #     device_status_handler(json_msg)
+        #     return
         # if response_type=="chat":
         if uuid is not None:
             ChatStorage.add_message(json_msg.get("data"))
-        else:  # 训练过程中产生的输出信息
-            # WebSocketManager.add_message(json_msg)
-            con = get_redis_connection("default")
-
-            # cached_train_logs = cache.get("train_logs", [])
-            # 对列表进行修改
-            # cached_train_logs.append(json_msg)
-            con.rpush("train_logs", json.dumps(json_msg))
-            # cache.set("train_logs", cached_train_logs)
+       
 
         if response_type == "train_status":
             train_status_handler(json_msg, Comm)
@@ -153,6 +152,19 @@ class Comm:
         if response_type == "upload_model_to_hf":
             upload_model_to_hf_handler(json_msg)
             return
+        #keepalive
+        if response_type == "keepalive":
+            device_status_handler(json_msg)
+            return
+        else:  # 训练过程中产生的输出信息
+            # WebSocketManager.add_message(json_msg)
+            con = get_redis_connection("default")
+
+            # cached_train_logs = cache.get("train_logs", [])
+            # 对列表进行修改
+            # cached_train_logs.append(json_msg)
+            con.rpush("train_logs", json.dumps(json_msg))
+            # cache.set("train_logs", cached_train_logs)
 
     @staticmethod
     def send_data(data, target):
@@ -162,28 +174,37 @@ class Comm:
             is_online = target in device_list if device_list is not None else False
             if not is_online:
                 return False
+       
         try:
-            if not Comm.connected:
-                Comm.start()
-                return
-            body = {"origin": Comm.local_machine_id, "target": target, "data": data}
-            Comm.channel.queue_declare(queue=target)
-            Comm.channel.basic_publish(
-                exchange="",  # 当前是一个简单模式，所以这里设置为空字符串就可以了
-                routing_key=target,  # 指定消息要发送到哪个queue
-                body=json.dumps(body),  # 指定要发送的消息
-            )
+            with Comm.public_lock:
+                if not Comm.connected:
+                    Comm.instance.start()
+                    return
+                body = {"origin": Comm.local_machine_id, "target": target, "data": data}
+                Comm.public_channel.queue_declare(queue=target)
+                Comm.public_channel.basic_publish(
+                    exchange="",  # 当前是一个简单模式，所以这里设置为空字符串就可以了
+                    routing_key=target,  # 指定消息要发送到哪个queue
+                    body=json.dumps(body),  # 指定要发送的消息
+                )
+                print(f"发送数据{body}")
         except pika.exceptions.ChannelWrongStateError as e:
             print(e)
-            if hasattr(Comm, "channel") and Comm.channel.is_open:
-                Comm.channel.close()
-            if hasattr(Comm.connection, "is_open") and Comm.connection.is_open:
-                Comm.connection.close()
-            Comm.connected = False
+            Comm.close_connection()
             Comm.instance = Comm()
             Comm.instance.start()
         return True
-
-    def disconnect_to_server(self):
+        
+    @staticmethod
+    def close_connection():
         # 关闭连接
-        pass
+        if hasattr(Comm, "channel") and Comm.channel.is_open:
+            Comm.channel.close()
+        if hasattr(Comm.connection, "is_open") and Comm.connection.is_open:
+            Comm.connection.close()
+        if hasattr(Comm, "public_channel") and Comm.public_channel.is_open:
+            Comm.public_channel.close()
+        if hasattr(Comm.public_connection, "is_open") and Comm.public_connection.is_open:
+            Comm.public_connection.close()
+        Comm.connected = False
+       
