@@ -35,11 +35,10 @@ class Comm:
     channel = None
     connected = False
     instance = None
-    
 
     def __init__(self) -> None:
         Comm.instance = self
-        Comm.public_lock=threading.Lock()
+        Comm.public_lock = threading.Lock()
 
     def start(self):
         if Comm.connected:
@@ -56,7 +55,7 @@ class Comm:
         )
         Comm.channel = Comm.connection.channel()
         Comm.public_connection = pika.BlockingConnection(
-            pika.ConnectionParameters(server_ip, 5672, "/", user_info)
+            pika.ConnectionParameters(server_ip, 5672, "/", user_info, heartbeat=0)
         )
         Comm.public_channel = Comm.public_connection.channel()
 
@@ -78,7 +77,7 @@ class Comm:
         # 一直处于等待接收消息的状态，如果没收到消息就一直处于阻塞状态，收到消息就调用上面的回调函数
         Comm.connected = True
         Comm.channel.start_consuming()
-        
+
         # self.run()
 
     # def run(self):
@@ -119,7 +118,6 @@ class Comm:
         # if response_type=="chat":
         if uuid is not None:
             ChatStorage.add_message(json_msg.get("data"))
-       
 
         if response_type == "train_status":
             train_status_handler(json_msg, Comm)
@@ -152,7 +150,7 @@ class Comm:
         if response_type == "upload_model_to_hf":
             upload_model_to_hf_handler(json_msg)
             return
-        #keepalive
+        # keepalive
         if response_type == "keepalive":
             device_status_handler(json_msg)
             return
@@ -174,7 +172,7 @@ class Comm:
             is_online = target in device_list if device_list is not None else False
             if not is_online:
                 return False
-       
+
         try:
             with Comm.public_lock:
                 if not Comm.connected:
@@ -194,7 +192,7 @@ class Comm:
             Comm.instance = Comm()
             Comm.instance.start()
         return True
-        
+
     @staticmethod
     def close_connection():
         # 关闭连接
@@ -204,7 +202,9 @@ class Comm:
             Comm.connection.close()
         if hasattr(Comm, "public_channel") and Comm.public_channel.is_open:
             Comm.public_channel.close()
-        if hasattr(Comm.public_connection, "is_open") and Comm.public_connection.is_open:
+        if (
+            hasattr(Comm.public_connection, "is_open")
+            and Comm.public_connection.is_open
+        ):
             Comm.public_connection.close()
         Comm.connected = False
-       
