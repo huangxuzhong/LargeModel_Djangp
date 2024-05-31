@@ -166,12 +166,15 @@ class Comm:
 
     @staticmethod
     def send_data(data, target):
-        if target != "server":
-            # 使用缓存来避免查询数据库
-            device_list = cache.get("online_devices")
-            is_online = target in device_list if device_list is not None else False
-            if not is_online:
-                return False
+        # 使用缓存来避免查询数据库
+        con = get_redis_connection("default")
+        target_status = con.gset("device_status", target)
+
+        is_online = (
+            json.loads(target)["is_online"] if target_status is not None else False
+        )
+        if not is_online:
+            return False
 
         try:
             with Comm.public_lock:
