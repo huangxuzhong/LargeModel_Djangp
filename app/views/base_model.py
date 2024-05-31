@@ -40,7 +40,7 @@ class BaseModelViewSet(GenericViewSet):
         skip_count = int(request.query_params.get("skipCount", 0))
 
         base_model_name = request.query_params.get("base_model_name")
-        base_model_type = request.query_params.get("model_type")
+        base_model_type = request.query_params.get("base_model_type")
         if base_model_type is not None and base_model_type != "":
             base_model_type = base_model_type.replace("base_", "")
         q_objects = Q()

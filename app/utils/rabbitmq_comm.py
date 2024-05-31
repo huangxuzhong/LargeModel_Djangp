@@ -26,73 +26,80 @@ from django_redis import get_redis_connection
 django.setup()  # 不加这句导入models会报exceptions.AppRegistryNotReady
 from app import models
 from app.utils.websocket import WebSocketManager
+import logging
 
 
 class Comm:
-    read_buffer = queue.Queue()
-    send_buffer = queue.Queue()
+
     local_machine_id = None
+    connection = None
+    public_connection = None
     channel = None
+    public_channel = None
     connected = False
     instance = None
+    public_lock = threading.Lock()
+    reconnect_lock = threading.Lock()
 
     def __init__(self) -> None:
         Comm.instance = self
-        Comm.public_lock = threading.Lock()
 
     def start(self):
-        if Comm.connected:
-            return
-        # 读取配置文件
-        config = configparser.ConfigParser()
-        config.read("socket.ini")
-        server_port = config.get("server", "port")
-        server_ip = config.get("server", "ip")
-        user_info = pika.PlainCredentials("admin", "admin")
-        Comm.local_machine_id = str(config.get("local", "device_id"))
-        Comm.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(server_ip, 5672, "/", user_info)
-        )
-        Comm.channel = Comm.connection.channel()
-        Comm.public_connection = pika.BlockingConnection(
-            pika.ConnectionParameters(server_ip, 5672, "/", user_info, heartbeat=0)
-        )
-        Comm.public_channel = Comm.public_connection.channel()
+        with Comm.reconnect_lock:
+            if Comm.connected:
+                return
+            try:
+                # 读取配置文件
+                config = configparser.ConfigParser()
+                config.read("config.ini")
+                server_ip = config.get("server", "ip")
+                rabbitmq_username = config.get("rabbitmq", "username")
+                rabbitmq_password = config.get("rabbitmq", "password")
+                rabbitmq_port = int(config.get("rabbitmq", "port"))
+                Comm.local_machine_id = "django"
+            except Exception as e:
+                logging.error(str(e))
+                return
+            try:
+                user_info = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
 
-        # 如果指定的queue不存在，则会创建一个queue，如果已经存在 则不会做其他动作，生产者和消费者都做这一步的好处是
-        # 这样生产者和消费者就没有必要的先后启动顺序了
-        Comm.channel.queue_declare(queue=Comm.local_machine_id)
+                Comm.connection = pika.BlockingConnection(
+                    pika.ConnectionParameters(server_ip, rabbitmq_port, "/", user_info)
+                )
+                Comm.channel = Comm.connection.channel()
+                Comm.public_connection = pika.BlockingConnection(
+                    pika.ConnectionParameters(
+                        server_ip, rabbitmq_port, "/", user_info, heartbeat=0
+                    )
+                )
+                Comm.public_channel = Comm.public_connection.channel()
 
-        # channel: 包含channel的一切属性和方法
-        # method: 包含 consumer_tag, delivery_tag, exchange, redelivered, routing_key
-        # properties: basic_publish 通过 properties 传入的参数
-        # body: basic_publish发送的消息
+                Comm.channel.queue_declare(queue=Comm.local_machine_id)
 
-        Comm.channel.basic_consume(
-            queue=Comm.local_machine_id,  # 接收指定queue的消息
-            auto_ack=True,  # 指定为True，表示消息接收到后自动给消息发送方回复确认，已收到消息
-            on_message_callback=self.__handle_read,  # 设置收到消息的回调函数
-        )
-
-        # 一直处于等待接收消息的状态，如果没收到消息就一直处于阻塞状态，收到消息就调用上面的回调函数
-        Comm.connected = True
-        Comm.channel.start_consuming()
-
-        # self.run()
-
-    # def run(self):
-    #     # 开启心跳包机制
-    #     self.keep_alvie_thread = threading.Thread(target=self._keep_alvie)
-    #     self.keep_alvie_thread.start()
-
-    def close_connection(self):
-        pass
-
-    # def _keep_alvie(self):
-    #     while True:
-    #         time.sleep(5)
-    #         if self.client_socket is not None:
-    #             Comm.send_data({"type": "keepalive"}, "server")
+                Comm.channel.basic_consume(
+                    queue=Comm.local_machine_id,  # 接收指定queue的消息
+                    auto_ack=True,  # 指定为True，表示消息接收到后自动给消息发送方回复确认，已收到消息
+                    on_message_callback=self.__handle_read,  # 设置收到消息的回调函数
+                )
+                Comm.connected = True
+                print("已连接到rabbitmq")
+            except Exception as e:
+                logging.error(str(e))
+                if not Comm.connected:
+                    print("连接rabbitmq 失败，将在10秒后自动重连")
+                    Comm.close_connection()
+                    time.sleep(10)
+                    self.start()
+                    return
+        try:
+            # 一直处于等待接收消息的状态，如果没收到消息就一直处于阻塞状态，收到消息就调用上面的回调函数
+            Comm.channel.start_consuming()
+        except Exception as e:
+            logging.error(str(e))
+            print("rabbitmq 异常，将在10秒后自动重连")
+            Comm.close_connection()
+            time.sleep(10)
+            self.start()
 
     def __handle_read(self, ch, method, properties, msg):
         try:
@@ -101,8 +108,8 @@ class Comm:
             self._handle_msg(json_msg)
         except json.decoder.JSONDecodeError as e:
             print(f"JSON解析失败:{msg.decode('utf-8')}")
-        # except Exception as e:
-        #     print(f"处理数据异常:{e},数据{msg}")
+        except Exception as e:
+            print(f"处理数据异常:{e},数据{msg}")
 
     def _handle_msg(self, json_msg):
         # response_type=json_msg.get("data").get("response_type")
@@ -111,11 +118,7 @@ class Comm:
         response_type = json_msg.get("data").get("response_type")
         if json_msg.get("task") is not None:
             json_msg["task"] = json_msg.get("task").split("_")[1]
-        # # 算力服务器状态信息
-        # if response_type == "devices_status":
-        #     device_status_handler(json_msg)
-        #     return
-        # if response_type=="chat":
+
         if uuid is not None:
             ChatStorage.add_message(json_msg.get("data"))
             return
@@ -153,7 +156,7 @@ class Comm:
         if response_type == "upload_model_to_hf":
             upload_model_to_hf_handler(json_msg)
             return
-        # keepalive
+        #  算力服务器keepalive
         if response_type == "keepalive":
             device_status_handler(json_msg)
             return
@@ -184,7 +187,8 @@ class Comm:
                 )
                 print(f"发送数据{body}")
         except pika.exceptions.ChannelWrongStateError as e:
-            print(e)
+            logging.error(str(e))
+            print("rabbitmq 连接异常，将在10秒后自动重连")
             Comm.close_connection()
             Comm.instance = Comm()
             Comm.instance.start()
@@ -193,15 +197,19 @@ class Comm:
     @staticmethod
     def close_connection():
         # 关闭连接
-        if hasattr(Comm, "channel") and Comm.channel.is_open:
-            Comm.channel.close()
-        if hasattr(Comm.connection, "is_open") and Comm.connection.is_open:
-            Comm.connection.close()
-        if hasattr(Comm, "public_channel") and Comm.public_channel.is_open:
-            Comm.public_channel.close()
-        if (
-            hasattr(Comm.public_connection, "is_open")
-            and Comm.public_connection.is_open
-        ):
-            Comm.public_connection.close()
-        Comm.connected = False
+        try:
+            if hasattr(Comm.channel, "is_open") and Comm.channel.is_open:
+                Comm.channel.close()
+            if hasattr(Comm.connection, "is_open") and Comm.connection.is_open:
+                Comm.connection.close()
+            if hasattr(Comm.public_channel, "is_open") and Comm.public_channel.is_open:
+                Comm.public_channel.close()
+            if (
+                hasattr(Comm.public_connection, "is_open")
+                and Comm.public_connection.is_open
+            ):
+                Comm.public_connection.close()
+        except Exception as e:
+            logging.error(str(e))
+        finally:
+            Comm.connected = False

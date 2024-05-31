@@ -189,6 +189,7 @@ class TaskViewSet(GenericViewSet):
                 "task_id": task.id,
                 "task_name": task.task_name,
                 "finetuning_type": task.get_finetuning_type(),
+                "model_type": task.get_model_type(),
             }
             for task in models.Task.objects.filter(q_objects)
         ]

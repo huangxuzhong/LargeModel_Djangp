@@ -1,3 +1,4 @@
+# 文件已弃用
 import json
 import queue
 import socket
@@ -35,10 +36,10 @@ class TcpSocket:
     def __init__(self):
         # 读取配置文件
         config = configparser.ConfigParser()
-        config.read("socket.ini")
+        config.read("config.ini")
         self.server_port = config.get("server", "port")
         self.server_ip = config.get("server", "ip")
-        TcpSocket.local_machine_id = config.get("local", "device_id")
+        TcpSocket.local_machine_id = "django"
         self.lock = threading.Lock()  # connect_to_server()锁
         self.running = True
         self.need_reconnect = True  # 是否需要重新建立链接标志

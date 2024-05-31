@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 import datetime
 from pathlib import Path
 
-USE_REDIS = True
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -111,23 +110,21 @@ DATABASES = {
         "HOST": "127.0.0.1",
         "PORT": 3306,
         "USER": "root",
-        # "PASSWORD": "123456",
-        'PASSWORD': 'huang1358650629'
+        "PASSWORD": "123456",
+        # 'PASSWORD': 'huang1358650629'
     }
 }
-# 缓存设置
-if USE_REDIS:
-    CACHES = {
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": "redis://127.0.0.1:6379",
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            },
-        }
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
     }
-else:
-    CHACHE = {"default": {"BACKEND": "django.core.cache.backends.locmem.locMemCache"}}
+}
+# CHACHE = {"default": {"BACKEND": "django.core.cache.backends.locmem.locMemCache"}}
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 AUTH_USER_MODEL = "app.Users"
@@ -175,28 +172,3 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # 跨域增加忽略
 CORS_ALLOW_ALL_ORIGINS = True
-
-# CORS_ALLOW_CREDENTIALS = True
-# CORS_ORIGIN_ALLOW_ALL = True
-# CORS_ALLOW_HEADERS = ('*')  # 添加这个才彻底解决跨域
-# CORS_ORIGIN_WHITELIST = ('*')
-# CORS_ALLOW_METHODS = (
-#     'DELETE',
-#     'GET',
-#     'OPTIONS',
-#     'PATCH',
-#     'POST',
-#     'PUT',
-#     'VIEW',
-# )
-# CORS_ALLOW_HEADERS = (
-#     'accept',
-#     'accept-encoding',
-#     'authorization',
-#     'content-type',
-#     'dnt',
-#     'origin',
-#     'user-agent',
-#     'x-csrftoken',
-#     'x-requested-with',
-# )

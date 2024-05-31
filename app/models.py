@@ -159,6 +159,9 @@ class Task(models.Model):
     def get_base_model(self):
         return self.model_params.get("base")
 
+    def get_model_type(self):
+        return self.model_params.get("type")
+
 
 # 模型合并任务
 class ExportModelTask(models.Model):

@@ -6,6 +6,7 @@ import django
 django.setup()  # 不加这句导入models会报exceptions.AppRegistryNotReady
 from app import models
 from django.core.cache import cache
+from django_redis import get_redis_connection
 
 
 def train_status_handler(json_msg: json, TcpSocket):
@@ -40,66 +41,14 @@ def train_status_handler(json_msg: json, TcpSocket):
 
 
 def device_status_handler(json_msg: json):
-    # device_list = json_msg.get("data").get("device_list")
-    # current_online = [
-    #     key for key, value in device_list.items() if value.get("is_online")
-    # ]
-    # online_devices = cache.get("online_devices")
-    # flag = False
-    # if online_devices is None:
-    #     flag = True
-    # else:
-    #     set1 = set([key for key in current_online])
-    #     set2 = set(online_devices)
-    #     if set1 != set2:
-    #         flag = True
-    # if not flag:
-    #     return
-    # cache.set(
-    #     "online_devices", [key for key in current_online], timeout=100
-    # )  # 设置一个缓存超时时间
-    # devices = models.Device.objects.all()
-    # for device in devices:
-    #     online = device.device_key in current_online
-    #     device.is_online = online
-    #     device.save()
     device_key = json_msg.get("origin")
-    online_devices = cache.get("online_devices")
-    flag = False
-    if online_devices is None:
-        flag = True
-    else:
-        if device_key not in online_devices:
-            flag = True
-    if not flag:
-        return
-    new_list = online_devices if online_devices is not None else []
-    new_list.append(device_key)
-    cache.set("online_devices", new_list, timeout=100)  # 设置一个缓存超时时间
-    devices = models.Device.objects.all()
-    for device in devices:
-        online = device.device_key in new_list
-        device.is_online = online
-        device.save()
-
-
-# #检查设备离线
-# def check_device_offline():
-#     while True:
-#         try:
-#             time.sleep(15)
-#             cur_time=datetime.now()
-#             device_list={}
-#             for key in device_status.keys():
-#                 last_online_time=device_status[key]["last_online_time"]
-#                 # 计算时间差
-#                 time_difference = cur_time - last_online_time
-#                 if   time_difference.total_seconds()>15:
-#                     device_status[key]["is_online"]=False
-#                 device_list[key]={"is_online": device_status[key]["is_online"]}
-
-#         except Exception as e:
-#             print(e)
+    cur_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    con = get_redis_connection("default")
+    con.hset(
+        "device_status",
+        device_key,
+        json.dumps({"is_online": True, "last_online_time": cur_time}),
+    )
 
 
 def loss_log_handler(json_msg: json):
