@@ -281,7 +281,11 @@ class DatasetViewSet(GenericViewSet):
                 images_base64 = (
                     "data:image/jpeg;base64," + img_str
                 )  # 添加MIME类型和Base64前缀
-                text = data[i]["text"]
+                text = None
+                if data[i].get("text") is not None:
+                    text = data[i]["text"]
+                # elif data.info.dataset_name is not None:
+                #     text = data.info.dataset_name
                 items.append({"image": images_base64, "text": text})
             return DetailResponse(
                 data={

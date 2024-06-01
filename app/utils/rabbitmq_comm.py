@@ -168,10 +168,12 @@ class Comm:
     def send_data(data, target):
         # 使用缓存来避免查询数据库
         con = get_redis_connection("default")
-        target_status = con.gset("device_status", target)
+        target_status = con.hget("device_status", target)
 
         is_online = (
-            json.loads(target)["is_online"] if target_status is not None else False
+            json.loads(target_status)["is_online"]
+            if target_status is not None
+            else False
         )
         if not is_online:
             return False
