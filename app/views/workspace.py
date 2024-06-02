@@ -180,6 +180,11 @@ def get_workspace_by_id(workspace_id):
     return instance
 
 
+def _get_task_by_model(large_model):
+
+    return large_model.finetuning_task
+
+
 class ChatViewSet(ViewSet):
 
     # 模型问答
@@ -215,13 +220,6 @@ class ChatViewSet(ViewSet):
             print(e)
             return ErrorResponse(msg={"message": "请求超时"})
 
-    @sync_to_async
-    def _get_model(self, workspace_id):
-        if models.Workspace.objects.filter(id=workspace_id).exists():
-            instance = models.Workspace.objects.get(id=workspace_id)
-            return instance.model
-        return None
-
     # 加载模型
 
     @action(
@@ -237,7 +235,7 @@ class ChatViewSet(ViewSet):
         model = await sync_to_async(get_model_by_workspace)(workspace_id)
         model_id = model.id
         base_model = await sync_to_async(get_base_model_by_model)(model_id)
-        finetuning_task = model.finetuning_task
+        finetuning_task = await sync_to_async(_get_task_by_model)(model)
 
         adapter_name_or_path = model.adapter_name_or_path
         # instance=await sync_to_async(get_base_model_by_model)(model_id)
