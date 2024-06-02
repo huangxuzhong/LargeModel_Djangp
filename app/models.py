@@ -156,6 +156,9 @@ class Task(models.Model):
     def get_adapter_name_or_path(self):
         return self.config.get("adapter_name_or_path")
 
+    def get_template(self):
+        return self.config.get("template")
+
     def get_base_model(self):
         return self.model_params.get("base")
 
@@ -210,7 +213,7 @@ class LargeModel(models.Model):
         null=True,
     )
     # base = models.CharField(max_length=255, null=True, blank=True)
-    dataset = models.CharField(max_length=255, null=True, blank=True)
+
     description = models.CharField(max_length=255, null=True, blank=True)
     resource = models.ForeignKey(
         Device,

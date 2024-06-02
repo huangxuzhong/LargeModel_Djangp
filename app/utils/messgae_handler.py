@@ -37,6 +37,8 @@ def train_status_handler(json_msg: json, TcpSocket):
         if task is not None:
             task.status = "processing"
             task.start_time = datetime.now()
+            task.loss_log = None
+            task.checkpoints = None
             task.save()
 
 

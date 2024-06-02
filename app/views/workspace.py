@@ -237,30 +237,34 @@ class ChatViewSet(ViewSet):
         model = await sync_to_async(get_model_by_workspace)(workspace_id)
         model_id = model.id
         base_model = await sync_to_async(get_base_model_by_model)(model_id)
+        finetuning_task = model.finetuning_task
 
-        if "baichuan" in base_model.name.lower():
-            template = "baichuan2"
-        elif "llama" in base_model.name.lower():
-            template = "llama2_zh"
-        else:
-            template = "chatglm2"
         adapter_name_or_path = model.adapter_name_or_path
         # instance=await sync_to_async(get_base_model_by_model)(model_id)
         type = "load_txt2img_chat" if model.type == "text_image" else "load_chat"
         data = {
             "script_args": {
                 "uuid": uuid,
-                # "model_id":model_id,
                 "workspace_id": f"workspace_{workspace_id}",
                 "model_name_or_path": base_model.model_path,
-                "template": template,
                 "finetuning_type": "lora",
             },
             "use_gpus": Workspace.use_gpus,
             "type": type,
         }
+        if model.type == "text_chat":
+            # if "baichuan" in base_model.name.lower():
+            #     template = "baichuan2"
+            # elif "llama" in base_model.name.lower():
+            #     template = "llama2_zh"
+            # else:
+            #     template = "chatglm2"
+            data["script_args"]["template"] = finetuning_task.get_template()
         if adapter_name_or_path is not None and adapter_name_or_path != "":
-            data["script_args"]["adapter_name_or_path"] = adapter_name_or_path
+            if finetuning_task.get_finetuning_type() == "lora":
+                data["script_args"]["adapter_name_or_path"] = adapter_name_or_path
+            elif finetuning_task.get_finetuning_type() == "dreambooth":
+                data["script_args"]["dreambooth_name_or_path"] = adapter_name_or_path
         device_key = await sync_to_async(model.get_device_key_sync)()
         Comm.send_data(data, device_key)
         try:

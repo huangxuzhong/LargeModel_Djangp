@@ -117,7 +117,10 @@ class LargeModelViewSet(GenericViewSet):
                 else:
                     return ErrorResponse(msg="服务器不在线")
             else:
-                if task.get_finetuning_type() == "lora":
+                if (
+                    task.get_finetuning_type() == "lora"
+                    or task.get_finetuning_type() == "dreambooth"
+                ):
                     adapter_name_or_path = data["checkpoint"]
                     pre_adapter_name_or_path = task.get_adapter_name_or_path()
                     if (
